@@ -77,10 +77,10 @@ export default function CurriculumManager() {
             setIsLoading(true);
             setError(null);
             
-            const token = localStorage.getItem("token");
-            if (!token) {
-                throw new Error("No authentication token found");
-            }
+            // const token = localStorage.getItem("token");
+            // if (!token) {
+            //     throw new Error("No authentication token found");
+            // }
 
             const response = await fetch('/api/curriculum/get-curriculums', {
                 method: 'GET',
@@ -143,8 +143,8 @@ export default function CurriculumManager() {
             const storageRef = ref(storage, `papergenie/${fileName}`);
 
             // Upload file to Firebase Storage
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
+            // const snapshot = await uploadBytes(storageRef, file);
+            // const downloadURL = await getDownloadURL(snapshot.ref);
 
             // Update form data with file info and URL
             setFormData(prev => ({

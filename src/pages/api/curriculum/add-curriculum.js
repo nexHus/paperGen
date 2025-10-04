@@ -1,6 +1,11 @@
 import Curriculum from "@/models/Curriculum";
 import connectDB from "@/middlewares/connectDB";
 import jwt from 'jsonwebtoken';
+import { v2 as cloudinary } from "cloudinary";
+
+
+
+
 
 const handler = async (req, res) => {
     if (req.method === "POST") {
