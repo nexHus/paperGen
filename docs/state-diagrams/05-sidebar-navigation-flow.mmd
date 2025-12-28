@@ -1,0 +1,112 @@
+---
+title: PaperGenie - Sidebar Navigation State Chart
+---
+stateDiagram-v2
+    [*] --> SidebarInit: App Mount
+
+    state SidebarInit {
+        [*] --> CheckCookie
+        CheckCookie --> LoadSavedState: Cookie Exists
+        CheckCookie --> DefaultExpanded: No Cookie
+        LoadSavedState --> [*]
+        DefaultExpanded --> [*]
+    }
+
+    SidebarInit --> SidebarReady
+
+    state SidebarReady {
+        [*] --> CheckDevice
+        CheckDevice --> DesktopMode: isDesktop
+        CheckDevice --> MobileMode: isMobile
+    }
+
+    state DesktopMode {
+        [*] --> Expanded
+        Expanded --> Collapsed: Toggle (Ctrl+B)
+        Collapsed --> Expanded: Toggle (Ctrl+B)
+        Expanded --> Collapsed: Click Collapse Button
+        Collapsed --> Expanded: Click Expand Button
+        
+        state Expanded {
+            [*] --> ShowFullSidebar
+            ShowFullSidebar --> NavItemHover: Mouse Over Item
+            NavItemHover --> ShowFullSidebar: Mouse Leave
+        }
+
+        state Collapsed {
+            [*] --> ShowIconOnly
+            ShowIconOnly --> ShowTooltip: Hover Icon
+            ShowTooltip --> ShowIconOnly: Mouse Leave
+        }
+    }
+
+    state MobileMode {
+        [*] --> MobileClosed
+        MobileClosed --> MobileOpen: Click Menu Button
+        MobileOpen --> MobileClosed: Click Outside
+        MobileOpen --> MobileClosed: Click Close
+        MobileOpen --> MobileClosed: Navigate to Page
+
+        state MobileOpen {
+            [*] --> ShowSheet
+            ShowSheet --> [*]
+        }
+    }
+
+    state Navigation {
+        [*] --> Idle
+
+        state MainNav {
+            [*] --> Dashboard
+            Dashboard --> GenerateAssessment: Click
+            GenerateAssessment --> MyAssessments: Click
+            MyAssessments --> CurriculumManager: Click
+            CurriculumManager --> Reports: Click
+            Reports --> Dashboard: Click
+        }
+
+        state SecondaryNav {
+            [*] --> IdleSecondary
+            IdleSecondary --> Settings: Click Settings
+            IdleSecondary --> Help: Click Help
+            IdleSecondary --> Search: Click Search
+        }
+
+        state UserNav {
+            [*] --> UserMenuClosed
+            UserMenuClosed --> UserMenuOpen: Click Avatar
+            UserMenuOpen --> UserMenuClosed: Click Outside
+            UserMenuOpen --> Account: Click Account
+            UserMenuOpen --> Billing: Click Billing
+            UserMenuOpen --> Notifications: Click Notifications
+            UserMenuOpen --> LoggingOut: Click Logout
+        }
+    }
+
+    DesktopMode --> Navigation: User Interacts
+    MobileMode --> Navigation: User Interacts
+
+    state LoggingOut {
+        [*] --> ClearingSession
+        ClearingSession --> ClearLocalStorage
+        ClearLocalStorage --> ClearZustandStore
+        ClearZustandStore --> RedirectToLogin
+        RedirectToLogin --> [*]
+    }
+
+    LoggingOut --> [*]: Redirect to Login
+
+    note right of DesktopMode
+        Cookie Persistence:
+        sidebar_state = expanded/collapsed
+        max-age: 7 days
+    end note
+
+    note right of MainNav
+        Navigation Items:
+        - Dashboard (/dashboard)
+        - Generate Assessment
+        - My Assessments
+        - Curriculum Manager
+        - Reports
+    end note

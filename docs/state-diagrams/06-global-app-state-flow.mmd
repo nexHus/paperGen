@@ -1,0 +1,134 @@
+---
+title: PaperGenie - Global Application State Chart
+---
+stateDiagram-v2
+    [*] --> AppInitialization
+
+    state AppInitialization {
+        [*] --> LoadingApp
+        LoadingApp --> CheckAuthentication
+        
+        state CheckAuthentication {
+            [*] --> CheckToken
+            CheckToken --> ValidateToken: Token Found
+            CheckToken --> Unauthenticated: No Token
+            ValidateToken --> Authenticated: Token Valid
+            ValidateToken --> Unauthenticated: Token Invalid/Expired
+        }
+    }
+
+    AppInitialization --> Unauthenticated: No Valid Session
+    AppInitialization --> Authenticated: Valid Session
+
+    state Unauthenticated {
+        [*] --> PublicRoutes
+        
+        state PublicRoutes {
+            [*] --> LandingPage
+            LandingPage --> LoginPage: Click Login
+            LandingPage --> SignupPage: Click Signup
+            LoginPage --> SignupPage: Need Account
+            SignupPage --> LoginPage: Have Account
+        }
+
+        state LoginProcess {
+            [*] --> EnteringCredentials
+            EnteringCredentials --> Submitting: Submit Form
+            Submitting --> LoginSuccess: Valid Credentials
+            Submitting --> LoginFailed: Invalid Credentials
+            LoginFailed --> EnteringCredentials: Retry
+        }
+
+        state SignupProcess {
+            [*] --> EnteringDetails
+            EnteringDetails --> Creating: Submit Form
+            Creating --> SignupSuccess: Account Created
+            Creating --> SignupFailed: Error (Email Exists, etc.)
+            SignupFailed --> EnteringDetails: Retry
+            SignupSuccess --> LoginPage: Redirect
+        }
+    }
+
+    state Authenticated {
+        [*] --> InitializeUserState
+        
+        state InitializeUserState {
+            [*] --> LoadUserFromToken
+            LoadUserFromToken --> PopulateZustandStore
+            PopulateZustandStore --> UserReady
+        }
+
+        UserReady --> DashboardRoutes
+
+        state DashboardRoutes {
+            [*] --> Dashboard
+            Dashboard --> GenerateAssessment
+            Dashboard --> MyAssessments
+            Dashboard --> CurriculumManager
+            Dashboard --> Reports
+            Dashboard --> Settings
+            
+            GenerateAssessment --> Dashboard: Back
+            MyAssessments --> Dashboard: Back
+            CurriculumManager --> Dashboard: Back
+        }
+
+        state ZustandStore {
+            [*] --> StoreInitialized
+            
+            state StoreInitialized {
+                name: string
+                email: string
+                userId: string
+                avatar: string
+            }
+
+            StoreInitialized --> UpdateName: SetName()
+            StoreInitialized --> UpdateEmail: SetEmail()
+            StoreInitialized --> UpdateUserId: SetUserId()
+            StoreInitialized --> UpdateAvatar: SetAvatar()
+            
+            UpdateName --> StoreInitialized
+            UpdateEmail --> StoreInitialized
+            UpdateUserId --> StoreInitialized
+            UpdateAvatar --> StoreInitialized
+        }
+
+        state SessionManagement {
+            [*] --> SessionActive
+            SessionActive --> SessionExpiring: Near Expiry
+            SessionExpiring --> SessionRefreshed: Refresh Token
+            SessionExpiring --> SessionExpired: No Refresh
+            SessionRefreshed --> SessionActive
+        }
+    }
+
+    Unauthenticated --> Authenticated: Login Success
+    Authenticated --> Unauthenticated: Logout / Session Expired
+
+    state Logout {
+        [*] --> ClearLocalStorage
+        ClearLocalStorage --> ResetZustandStore
+        ResetZustandStore --> RedirectToLogin
+        RedirectToLogin --> [*]
+    }
+
+    Authenticated --> Logout: User Logout
+    Logout --> Unauthenticated
+
+    note right of ZustandStore
+        Zustand Store Structure:
+        {
+            name: "user name",
+            email: "user@email.com",
+            userId: "mongodb_id",
+            avatar: "/path/to/avatar"
+        }
+    end note
+
+    note right of SessionManagement
+        JWT Token:
+        - Payload: { userId }
+        - Expiry: 1 day
+        - Storage: localStorage
+    end note
