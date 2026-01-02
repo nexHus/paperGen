@@ -1,0 +1,122 @@
+graph TD
+    %% --- System Swimlane ---
+    subgraph System_Lane ["System"]
+        direction TB
+        Start((Start))
+        Init[Initialize System]
+        SysReady[System Ready]
+        
+        %% Auth Logic
+        ValStudent{Credentials Valid?}
+        AuthStudent[Authorize Student]
+        LoginErr1[Display Login Error]
+        
+        ValTeacher{Credentials Valid?}
+        AuthTeacher[Authorize Teacher]
+        LoginErr2[Display Login Error]
+        
+        %% Upload Logic
+        ValFile{Validate File Type}
+        UpCloud[Upload to Cloudinary]
+        ProcessAI[Extract Text & Chunk<br/>Generate Embeddings]
+        SaveMeta[Save Metadata]
+        DispSuccess[Display Success]
+        ShowFileErr[Show Error]
+        
+        %% Search Logic
+        SearchProcess[Vector Search & Fetch]
+        
+        %% Assessment Logic
+        AssessProcess[Validate & Save Quiz]
+        
+        %% Manage Logic
+        ManageProcess[Update DB]
+        
+        %% Cleanup
+        EndSession[End Session]
+        Cleanup[Cleanup Resources]
+        Stop((Stop))
+    end
+
+    %% --- User Swimlane ---
+    subgraph User_Lane ["User"]
+        direction TB
+        ViewLanding[View Landing Page]
+        RoleSelect{Select Role?}
+        
+        %% Student Actions
+        InputStudent[Input Student Credentials]
+        AccessStudentDash[Access Student Dashboard]
+        ServiceSelect{Choose Service?}
+        SelectPDF[Select PDF File]
+        EnterQuery[Enter Search Query]
+        ViewDoc[View Document]
+        
+        %% Teacher Actions
+        InputTeacher[Input Teacher Credentials]
+        AccessTeacherDash[Access Teacher Dashboard]
+        TaskSelect{Choose Task?}
+        EnterQuiz[Enter Quiz Details]
+        SubmitAssess[Submit Assessment]
+        ManageContent[Manage Content]
+        
+        Logout[Logout]
+    end
+
+    %% --- Connections ---
+    Start --> Init
+    Init --> SysReady
+    SysReady --> ViewLanding
+    
+    ViewLanding --> RoleSelect
+    
+    %% Student Flow
+    RoleSelect -->|Student| InputStudent
+    InputStudent --> ValStudent
+    ValStudent -->|No| LoginErr1
+    LoginErr1 --> Stop
+    ValStudent -->|Yes| AuthStudent
+    AuthStudent --> AccessStudentDash
+    AccessStudentDash --> ServiceSelect
+    
+    %% Upload Flow
+    ServiceSelect -->|Upload| SelectPDF
+    SelectPDF --> ValFile
+    ValFile -->|No| ShowFileErr
+    ValFile -->|Yes| UpCloud
+    UpCloud --> ProcessAI
+    ProcessAI --> SaveMeta
+    SaveMeta --> DispSuccess
+    DispSuccess --> Logout
+    ShowFileErr --> Logout
+    
+    %% Search Flow
+    ServiceSelect -->|Search| EnterQuery
+    EnterQuery --> SearchProcess
+    SearchProcess --> ViewDoc
+    ViewDoc --> Logout
+    
+    %% Teacher Flow
+    RoleSelect -->|Teacher| InputTeacher
+    InputTeacher --> ValTeacher
+    ValTeacher -->|No| LoginErr2
+    LoginErr2 --> Stop
+    ValTeacher -->|Yes| AuthTeacher
+    AuthTeacher --> AccessTeacherDash
+    AccessTeacherDash --> TaskSelect
+    
+    %% Assessment Flow
+    TaskSelect -->|Create Quiz| EnterQuiz
+    EnterQuiz --> SubmitAssess
+    SubmitAssess --> AssessProcess
+    AssessProcess --> DispSuccess
+    
+    %% Management Flow (Added to complete logic)
+    TaskSelect -->|Manage| ManageContent
+    ManageContent --> ManageProcess
+    ManageProcess --> DispSuccess
+
+    %% Cleanup Flow (Added to complete logic)
+    Logout --> EndSession
+    EndSession --> Cleanup
+    Cleanup --> Stop
