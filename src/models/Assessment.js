@@ -1,29 +1,74 @@
-import mongoose,{Schema} from "mongoose";
-// import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+import mongoose, { Schema } from "mongoose";
 
+/**
+ * Question Schema - Embedded in Assessment
+ * Supports MCQ, Short Answer, and Long Answer questions
+ */
+const questionSchema = new Schema({
+  id: { type: String },
+  type: { 
+    type: String, 
+    enum: ["MCQ", "Short Answer", "Long Answer"],
+    required: true 
+  },
+  question: { type: String, required: true },
+  options: [{ type: String }], // For MCQs
+  correctAnswer: { type: Number }, // Index of correct option for MCQs
+  marks: { type: Number, default: 1 },
+  difficulty: { type: String, enum: ["Easy", "Medium", "Hard"] },
+  topic: { type: String },
+  rubric: { type: String }, // Grading rubric for short/long answers
+  expectedLength: { type: String }, // Expected answer length
+  sourceContent: { type: String }, // Source curriculum content used
+});
 
-const assessmentSchema = new  Schema(
-
-    {
-assessmentTitle :{type:String, required : true},
-subject :{type:String,required : true},
-assessmentType :{type:String},
-duration : {type : Number},
-difficultyLevel :{type:String, enum:["Easy","Medium","Hard","Mixed"] },
-passingPercentage : {type : Number , min : 0 , max : 100 , required : true },
-numberOfQuestions : {type : Number },
-marksPerQuestion : { type : Number },
-topicsCovered : [{type : String}],
-assessmentFile : { type :String,required: true},
-createdBy: {type : Schema.Types.ObjectId,ref:"User"},
-
-
-
+/**
+ * Assessment Schema
+ * Stores complete assessment with questions
+ */
+const assessmentSchema = new Schema(
+  {
+    assessmentTitle: { type: String, required: true },
+    subject: { type: String, required: true },
+    assessmentType: { 
+      type: String,
+      enum: ["mcqs", "shortQuestions", "longQuestions", "fullPaper", "mixed"],
+      default: "mixed"
     },
-    {
-        timestamps : true
-    }
-
+    duration: { type: Number, default: 60 }, // Duration in minutes
+    difficultyLevel: { 
+      type: String, 
+      enum: ["Easy", "Medium", "Hard", "Mixed"],
+      default: "Medium"
+    },
+    passingPercentage: { 
+      type: Number, 
+      min: 0, 
+      max: 100, 
+      default: 40 
+    },
+    numberOfQuestions: { type: Number },
+    marksPerQuestion: { type: Number, default: 1 },
+    totalMarks: { type: Number },
+    topicsCovered: [{ type: String }],
+    questions: [questionSchema], // Array of generated questions
+    assessmentFile: { type: String },
+    generatedAt: { type: Date },
+    generationMethod: { 
+      type: String, 
+      enum: ["local", "huggingface", "openai-compatible"],
+      default: "local"
+    },
+    status: {
+      type: String,
+      enum: ["draft", "published", "archived"],
+      default: "draft"
+    },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+  },
+  {
+    timestamps: true,
+  }
 )
 // assessmentSchema.plugin(mongooseAggregatePaginate)
 

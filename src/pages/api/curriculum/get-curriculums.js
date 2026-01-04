@@ -1,26 +1,14 @@
 import Curriculum from "@/models/Curriculum";
 import connectDB from "@/middlewares/connectDB";
-import jwt from 'jsonwebtoken';
+
+// LOCAL DEV MODE - Authentication disabled
+const LOCAL_USER_ID = "local_dev_user";
 
 const handler = async (req, res) => {
     if (req.method === "GET") {
         try {
-            const token = req.headers.authorization?.split(" ")[1];
-            if (!token) {
-                return res.status(401).json({
-                    type: "error",
-                    message: "Unauthorized"
-                });
-            }
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            if (!decoded) {
-                return res.status(401).json({
-                    type: "error",
-                    message: "Invalid token"
-                });
-            }
-
-            const curriculums = await Curriculum.find({ uploadedBy: decoded.userId });
+            // Get all curriculums for local dev (or filter by LOCAL_USER_ID)
+            const curriculums = await Curriculum.find({});
 
             return res.status(200).json({
                 type: "success",

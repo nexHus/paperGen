@@ -1,4 +1,5 @@
 import ChromaDBManager from "@/utils/chromaManager";
+import Curriculum from "@/models/Curriculum";
 import connectDB from "@/middlewares/connectDB";
 
 const handler = async (req, res) => {
@@ -14,25 +15,71 @@ const handler = async (req, res) => {
         });
       }
 
-      // Search ChromaDB for similar chunks using query text
-      const chromaManager = new ChromaDBManager();
-      const searchResults = await chromaManager.search(query, limit);
+      // Sanitize and validate limit
+      const searchLimit = Math.min(Math.max(1, parseInt(limit) || 5), 20);
 
-      // Format and return results
-      const formattedResults = {
-        query: query,
-        results: searchResults.documents[0]?.map((doc, index) => ({
-          text: doc,
-          metadata: searchResults.metadatas[0][index],
-          distance: searchResults.distances[0][index],
-          id: searchResults.ids[0][index]
-        })) || []
-      };
+      // Try ChromaDB first for semantic search
+      let chromaResults = null;
+      let searchMethod = "chroma";
+
+      try {
+        const chromaManager = new ChromaDBManager();
+        const isAvailable = await chromaManager.checkConnection();
+        
+        if (isAvailable) {
+          const searchResults = await chromaManager.search(query, searchLimit);
+          chromaResults = {
+            query: query,
+            results: searchResults.documents[0]?.map((doc, index) => ({
+              text: doc,
+              metadata: searchResults.metadatas[0][index],
+              distance: searchResults.distances[0][index],
+              id: searchResults.ids[0][index]
+            })) || []
+          };
+        }
+      } catch (chromaError) {
+        console.error("ChromaDB search failed:", chromaError.message);
+        searchMethod = "mongodb";
+      }
+
+      // Fallback to MongoDB text search if ChromaDB unavailable
+      if (!chromaResults || chromaResults.results.length === 0) {
+        console.log("Using MongoDB fallback search...");
+        searchMethod = "mongodb";
+        
+        // Simple text search in MongoDB
+        const mongoResults = await Curriculum.find({
+          $or: [
+            { textContent: { $regex: query, $options: 'i' } },
+            { fileName: { $regex: query, $options: 'i' } },
+            { topics: { $regex: query, $options: 'i' } },
+          ]
+        })
+        .limit(searchLimit)
+        .select('fileName textContent topics publicId')
+        .lean();
+
+        chromaResults = {
+          query: query,
+          results: mongoResults.map(doc => ({
+            text: doc.textContent?.substring(0, 500) || '',
+            metadata: {
+              fileName: doc.fileName,
+              documentId: doc.publicId,
+              topics: doc.topics,
+            },
+            distance: null, // MongoDB doesn't provide distance scores
+            id: doc._id.toString()
+          }))
+        };
+      }
 
       return res.status(200).json({
         type: "success",
-        message: "Search completed successfully",
-        data: formattedResults,
+        message: `Search completed successfully using ${searchMethod}`,
+        data: chromaResults,
+        searchMethod: searchMethod,
       });
 
     } catch (err) {

@@ -36,6 +36,16 @@ const handler = async (req, res) => {
         });
       }
 
+      // Validate JWT_SECRET is configured
+      if (!process.env.JWT_SECRET) {
+        console.error("JWT_SECRET is not configured in environment variables");
+        return res.status(500).json({
+          type: "error",
+          message: "Server configuration error. Please contact administrator.",
+          errorCode: "CONFIG_ERROR",
+        });
+      }
+
       const token = jwt.sign({userId: user._id}, process.env.JWT_SECRET, {expiresIn: '1d'});
       const sendUser = {
         userId: user._id,

@@ -21,44 +21,81 @@ export function LoginForm({
   ...props
 }) {
   const router = useRouter();
-  const { SetEmail, SetUserId, SetName } = useStore();
-  const [email, setEmail]= useState("")
-  const [password, setPassword]= useState("")
-  const login = async() => {
+  const { login: storeLogin } = useStore();
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  const validateForm = () => {
+    if (!email || !email.trim()) {
+      toast.error("Please enter your email address");
+      return false;
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return false;
+    }
+    if (!password) {
+      toast.error("Please enter your password");
+      return false;
+    }
+    return true;
+  };
+
+  const login = async () => {
+    if (!validateForm()) return;
+    if (isLoading) return; // Prevent double submission
+
     const data = {
-      email: email,
+      email: email.trim().toLowerCase(),
       password: password
     }
+    
+    setIsLoading(true);
+    const loadingToast = toast.loading("Logging in...");
+    
     try {
-
-      toast.loading("Logging in...")
       const req = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-    const res = await req.json();
-    console.log(res);
-    toast.dismiss();
-    if (res.type == "success") {
-      toast.success(res.message)
-      localStorage.setItem("token", res.token);
-      SetEmail(res.user.email);
-      SetUserId(res.user.userId);
-      SetName(res.user.name);
-      router.push("/dashboard");
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      
+      const res = await req.json();
+      console.log(res);
+      toast.dismiss(loadingToast);
+      
+      if (res.type === "success") {
+        toast.success(res.message);
+        localStorage.setItem("token", res.token);
+        // Use the new login action to set all user data at once
+        storeLogin({
+          email: res.user.email,
+          userId: res.user.userId,
+          name: res.user.name
+        });
+        router.push("/dashboard");
+      } else {
+        toast.error(res.message || "Login failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.dismiss(loadingToast);
+      toast.error("Unable to connect to server. Please check your connection and try again.");
+    } finally {
+      setIsLoading(false);
     }
-    else {
-      toast.error(res.message)
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      login();
     }
-  }
-  catch(error) {
-    toast.dismiss();
-    toast.error("An error occurred while logging in. Please try again later.");
-  }
-  }
+  };
   return (
     (<div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -75,7 +112,16 @@ export function LoginForm({
               <div className="grid gap-6">
                 <div className="grid gap-3">
                   <Label htmlFor="email">Email</Label>
-                  <Input value={email} onChange={e=>setEmail(e.target.value)} id="email" type="email" placeholder="m@example.com" required />
+                  <Input 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                    onKeyPress={handleKeyPress}
+                    id="email" 
+                    type="email" 
+                    placeholder="m@example.com" 
+                    required 
+                    disabled={isLoading}
+                  />
                 </div>
                 <div className="grid gap-3">
                   <div className="flex items-center">
@@ -84,10 +130,18 @@ export function LoginForm({
                       Forgot your password?
                     </a>
                   </div>
-                  <Input value={password} onChange={e=>setPassword(e.target.value)}  id="password" type="password" required />
+                  <Input 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    onKeyPress={handleKeyPress}
+                    id="password" 
+                    type="password" 
+                    required 
+                    disabled={isLoading}
+                  />
                 </div>
-                <Button onClick={login} className="w-full">
-                  Login
+                <Button onClick={login} className="w-full" disabled={isLoading}>
+                  {isLoading ? "Logging in..." : "Login"}
                 </Button>
               </div>
               <div className="text-center text-sm">

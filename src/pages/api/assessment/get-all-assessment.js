@@ -1,31 +1,19 @@
-import Curriculum from "@/models/Curriculum";
 import connectDB from "@/middlewares/connectDB";
-import jwt from 'jsonwebtoken';
 import Assessment from "@/models/Assessment";
+
+// LOCAL DEV MODE - Authentication disabled
+const LOCAL_USER_ID = "local_dev_user";
+
 const handler = async (req, res) => {
     console.log("Hello before")
     if (req.method === "GET") {
         try {
-    console.log("Hello after")
+            console.log("Hello after")
 
-            const token = req.headers.authorization?.split(" ")[1];
-            if (!token) {
-                return res.status(401).json({
-                    type: "error",
-                    message: "Unauthorized"
-                });
-            }
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            if (!decoded) {
-                return res.status(401).json({
-                    type: "error",
-                    message: "Invalid token"
-                });
-            }
+            // Get all assessments for local dev
+            const assessment = await Assessment.find({});
 
-            const assessment = await Assessment.find({ createdBy: decoded.userId });
-
-console.log(assessment)
+            console.log(assessment)
 
             return res.status(200).json({
                 type: "success",

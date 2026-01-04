@@ -1,11 +1,9 @@
 import Assessment from "@/models/Assessment";
 import connectDB from "@/middlewares/connectDB";
-// import { asyncHandler } from "@/utilis-Backend/AsyncHandler.util";
 import { ApiResponse } from "@/utilis-Backend/apiResponse.util.js";
-import jwt from "jsonwebtoken";
-import { Sedgwick_Ave_Display } from "next/font/google";
-// import { ApiError } from "@/utilis-Backend/Error.util";
-// import { verifyJWT } from "@/middlewares/verifyJWT.middleware";
+
+// LOCAL DEV MODE - Authentication disabled
+const LOCAL_USER_ID = "local_dev_user";
 
 const handler = async (req, res) => {
   if (req.method !== "POST") {
@@ -16,21 +14,6 @@ const handler = async (req, res) => {
   try {
     if (!req.body)
       return res.status(500).json(new ApiResponse(500, "Req. Body not found"));
-
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({
-        type: "error",
-        message: "Unauthorized",
-      });
-    }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded) {
-      return res.status(401).json({
-        type: "error",
-        message: "Invalid token",
-      });
-    }
 
     // Debug logging
     // console.log("Request method:", req.method);
@@ -78,7 +61,7 @@ const handler = async (req, res) => {
       marksPerQuestion,
       topicsCovered,
     });
-    console.log(decoded);
+
     // Create new assessment
     const newAssessment = new Assessment({
       assessmentTitle,
@@ -98,7 +81,7 @@ const handler = async (req, res) => {
             .map((t) => t.trim())
         : [],
       assessmentFile,
-      createdBy: decoded.userId,
+      createdBy: LOCAL_USER_ID,
     });
 
     const savedAssessment = await newAssessment.save();

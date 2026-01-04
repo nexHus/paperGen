@@ -76,17 +76,11 @@ export default function CurriculumManager() {
         try {
             setIsLoading(true);
             setError(null);
-            
-            // const token = localStorage.getItem("token");
-            // if (!token) {
-            //     throw new Error("No authentication token found");
-            // }
 
             const response = await fetch('/api/curriculum/get-curriculums', {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 }
             });
 
@@ -143,8 +137,8 @@ export default function CurriculumManager() {
             const storageRef = ref(storage, `papergenie/${fileName}`);
 
             // Upload file to Firebase Storage
-            // const snapshot = await uploadBytes(storageRef, file);
-            // const downloadURL = await getDownloadURL(snapshot.ref);
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
 
             // Update form data with file info and URL
             setFormData(prev => ({
@@ -155,9 +149,10 @@ export default function CurriculumManager() {
             setFileUrl(downloadURL);
 
             console.log('File uploaded successfully:', downloadURL);
+            toast.success('File uploaded successfully!');
         } catch (error) {
             console.error('Error uploading file:', error);
-            alert('Failed to upload file. Please try again.');
+            toast.error('Failed to upload file. Please try again.');
         } finally {
             setIsUploading(false);
             setUploadProgress(0);
@@ -197,15 +192,13 @@ export default function CurriculumManager() {
 
         try {
             setIsUploading(true);
-            const token = localStorage.getItem("token");
        
             if (editingCurriculum) {
                // Update existing curriculum
             const response = await fetch(`/api/curriculum/update-curriculum`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     ...curriculumData,
@@ -230,8 +223,7 @@ export default function CurriculumManager() {
                 const response = await fetch('/api/curriculum/add-curriculum', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({...curriculumData, file: fileUrl}),
                 });
@@ -296,12 +288,10 @@ export default function CurriculumManager() {
     
         try {
             toast.loading('Deleting curriculum...');
-            const token = localStorage.getItem("token");
             const response = await fetch('/api/curriculum/delete-curriculum', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     curriculumId: curriculum._id

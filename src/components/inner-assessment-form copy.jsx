@@ -21,6 +21,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import toast from "react-hot-toast"
+
 export function InnerAssessmentForm({
     className,
     initialData,
@@ -33,11 +35,11 @@ export function InnerAssessmentForm({
         title: '',
         duration: '',
         passingPercentage: '',
-        difficulty: '',
+        difficultyLevel: '',
         numberOfQuestions: '',
         marksPerQuestion: '',
         instructions: '',
-        topics: ''
+        topicsCovered: ''
     });
 
     const [showQuestionDetails, setShowQuestionDetails] = useState(!!initialData?.assessmentType);
@@ -93,30 +95,62 @@ export function InnerAssessmentForm({
                 ? Math.ceil((calculatedTotal * formData.passingPercentage) / 100)
                 : 0;
             
-            // Add calculated values to the form data
-            const assessmentData = {
-                ...formData,
-                totalMarks: calculatedTotal,
-                passingMarks: calculatedPassingMarks
-            };
+            // Prepare topics as array
+            const topicsArray = formData.topicsCovered
+                ? formData.topicsCovered.split(',').map(t => t.trim()).filter(t => t)
+                : [formData.subject]; // Use subject as default topic if none provided
             
-            console.log('Assessment Configuration:', assessmentData);
+            // First, try to generate questions using AI
+            console.log('Generating AI questions...');
+            toast.loading('Generating questions with AI...', { id: 'generating' });
             
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const aiResponse = await fetch('/api/assessment/generate-ai-questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topics: topicsArray,
+                    numberOfQuestions: parseInt(formData.numberOfQuestions) || 10,
+                    assessmentType: formData.assessmentType,
+                    difficulty: formData.difficultyLevel,
+                    subject: formData.subject,
+                    title: formData.title,
+                    duration: parseInt(formData.duration) || 60,
+                    marksPerQuestion: parseInt(formData.marksPerQuestion) || 1,
+                    passingPercentage: parseInt(formData.passingPercentage) || 40,
+                    useAI: true
+                })
+            });
             
-            // Here you would typically send the data to your backend
-            // const response = await fetch('/api/generate-assessment', {
-            //     method: 'POST',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify(assessmentData)
-            // });
+            const aiResult = await aiResponse.json();
+            toast.dismiss('generating');
             
-            alert('Assessment generated successfully!');
+            if (aiResult.type === 'success') {
+                toast.success(`Assessment created with ${aiResult.data.totalQuestions} questions!`);
+                console.log('Generated Assessment:', aiResult.data);
+                
+                // Reset form after successful creation
+                setFormData({
+                    subject: '',
+                    assessmentType: '',
+                    title: '',
+                    duration: '',
+                    passingPercentage: '',
+                    difficultyLevel: '',
+                    numberOfQuestions: '',
+                    marksPerQuestion: '',
+                    instructions: '',
+                    topicsCovered: ''
+                });
+                // Go back to initial form
+                if (onBack) onBack();
+            } else {
+                toast.error(aiResult.message || 'Failed to generate assessment');
+            }
             
         } catch (error) {
             console.error('Error generating assessment:', error);
-            alert('Failed to generate assessment. Please try again.');
+            toast.dismiss('generating');
+            toast.error('Failed to generate assessment. Please try again.');
         } finally {
             setIsGenerating(false);
         }
@@ -126,7 +160,7 @@ export function InnerAssessmentForm({
         e.preventDefault();
         
         // Validate required fields
-        const requiredFields = ['title', 'subject', 'assessmentType', 'duration', 'passingPercentage', 'difficulty'];
+        const requiredFields = ['title', 'subject', 'assessmentType', 'duration', 'passingPercentage', 'difficultyLevel'];
         const missingFields = requiredFields.filter(field => !formData[field]);
         
         if (showQuestionDetails) {
@@ -297,23 +331,23 @@ export function InnerAssessmentForm({
                                     />
                                 </div>
                                 
-                                <div className="grid gap-3">
-                                    <Label htmlFor="difficulty">Difficulty Level</Label>
-                                    <Select onValueChange={(value) => handleInputChange('difficulty', value)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select difficulty" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectGroup>
-                                                <SelectLabel>Difficulty Level</SelectLabel>
-                                                <SelectItem value="easy">Easy</SelectItem>
-                                                <SelectItem value="medium">Medium</SelectItem>
-                                                <SelectItem value="hard">Hard</SelectItem>
-                                                <SelectItem value="mixed">Mixed</SelectItem>
-                                            </SelectGroup>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                            <div className="grid gap-3">
+                                <Label htmlFor="difficulty">Difficulty Level</Label>
+                                <Select onValueChange={(value) => handleInputChange('difficultyLevel', value)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select difficulty" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectLabel>Difficulty Level</SelectLabel>
+                                            <SelectItem value="Easy">Easy</SelectItem>
+                                            <SelectItem value="Medium">Medium</SelectItem>
+                                            <SelectItem value="Hard">Hard</SelectItem>
+                                            <SelectItem value="Mixed">Mixed</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             </div>
 
                             {/* Marks Configuration */}
@@ -376,8 +410,8 @@ export function InnerAssessmentForm({
                                             id="topics"
                                             type="text"
                                             placeholder="e.g., Arrays, Loops, Functions (comma separated)"
-                                            value={formData.topics}
-                                            onChange={(e) => handleInputChange('topics', e.target.value)}
+                                            value={formData.topicsCovered}
+                                            onChange={(e) => handleInputChange('topicsCovered', e.target.value)}
                                         />
                                     </div>
                                 </>

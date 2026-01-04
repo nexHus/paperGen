@@ -1,26 +1,13 @@
 import Curriculum from "@/models/Curriculum";
 import connectDB from "@/middlewares/connectDB";
-import jwt from 'jsonwebtoken';
+import mongoose from "mongoose";
+
+// LOCAL DEV MODE - Authentication disabled
+const LOCAL_USER_ID = "local_dev_user";
 
 const handler = async (req, res) => {
     if (req.method === "POST") {
         try {
-            const token = req.headers.authorization?.split(" ")[1];
-            if (!token) {
-                return res.status(401).json({
-                    type: "error",
-                    message: "Unauthorized"
-                });
-            }
-
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            if (!decoded) {
-                return res.status(401).json({
-                    type: "error",
-                    message: "Invalid token"
-                });
-            }
-
             const { curriculumId, ...updateData } = req.body;
 
             if (!curriculumId) {
@@ -30,10 +17,17 @@ const handler = async (req, res) => {
                 });
             }
 
-            // Check if curriculum exists and belongs to the user
+            // Validate ObjectId format
+            if (!mongoose.Types.ObjectId.isValid(curriculumId)) {
+                return res.status(400).json({
+                    type: "error",
+                    message: "Invalid curriculum ID format"
+                });
+            }
+
+            // Check if curriculum exists
             const existingCurriculum = await Curriculum.findOne({
-                _id: curriculumId,
-                uploadedBy: decoded.userId
+                _id: curriculumId
             });
 
             if (!existingCurriculum) {

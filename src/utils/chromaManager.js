@@ -3,36 +3,60 @@ import { DefaultEmbeddingFunction } from '@chroma-core/default-embed';
 
 /**
  * ChromaDB utility class for managing document embeddings
+ * Includes graceful error handling when ChromaDB is unavailable
  */
 class ChromaDBManager {
   constructor() {
+    this.chromaUrl = process.env.CHROMA_DB_URL || "http://localhost:8000";
     this.client = new ChromaClient({
-      path: process.env.CHROMA_DB_URL || "http://localhost:8000"
+      path: this.chromaUrl
     });
     this.collectionName = process.env.CHROMA_COLLECTION_NAME || "curriculum_documents";
     this.embeddingFunction = new DefaultEmbeddingFunction();
+    this.isConnected = null; // null = unknown, true = connected, false = not connected
+  }
+
+  /**
+   * Check if ChromaDB is available
+   */
+  async checkConnection() {
+    if (this.isConnected !== null) return this.isConnected;
+    
+    try {
+      await this.client.heartbeat();
+      this.isConnected = true;
+      return true;
+    } catch (error) {
+      console.warn(`ChromaDB not available at ${this.chromaUrl}:`, error.message);
+      this.isConnected = false;
+      return false;
+    }
   }
 
   /**
    * Get or create collection
+   * @throws {Error} If ChromaDB is not available
    */
   async getCollection() {
+    // Check connection first
+    const isAvailable = await this.checkConnection();
+    if (!isAvailable) {
+      throw new Error(`ChromaDB is not available at ${this.chromaUrl}. Please ensure ChromaDB is running.`);
+    }
+
     try {
       // Try to get existing collection
-      const collection = await this.client.getCollection({
-        name: this.collectionName,
-        embeddingFunction: this.embeddingFunction
-      });
-      return collection;
-    } catch (error) {
-      // Create collection if it doesn't exist
-      return await this.client.createCollection({
+      const collection = await this.client.getOrCreateCollection({
         name: this.collectionName,
         metadata: {
           description: "Curriculum document embeddings"
         },
         embeddingFunction: this.embeddingFunction
       });
+      return collection;
+    } catch (error) {
+      console.error('Error getting/creating ChromaDB collection:', error);
+      throw error;
     }
   }
 

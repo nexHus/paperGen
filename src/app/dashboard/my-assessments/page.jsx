@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import {
@@ -44,106 +44,82 @@ import {
     Share,
     Star,
     BarChart3,
-    Plus
+    Plus,
+    Loader2
 } from "lucide-react"
+import toast from "react-hot-toast"
 
 export default function MyAssessments() {
-    // Sample assessment data (this would come from your database)
-    const [assessments, setAssessments] = useState([
-        {
-            id: 1,
-            title: "Computer Science Mid-Term Exam",
-            subject: "Computer Science",
-            grade: "12",
-            board: "CBSE",
-            type: "Mid-Term",
-            totalMarks: 100,
-            duration: 180,
-            questions: 25,
-            createdDate: "2024-01-15",
-            status: "Published",
-            downloads: 45,
-            difficulty: "Medium",
-            topics: ["Python Programming", "Data Structures", "Algorithms", "OOP Concepts"],
-            description: "Comprehensive mid-term examination covering Python programming fundamentals, data structures, and object-oriented programming concepts.",
-            questionBreakdown: {
-                mcq: 10,
-                shortAnswer: 8,
-                longAnswer: 5,
-                practical: 2
-            },
-            markingScheme: {
-                mcq: "1 mark each",
-                shortAnswer: "3-5 marks each",
-                longAnswer: "10-15 marks each",
-                practical: "20 marks each"
-            }
-        },
-        {
-            id: 2,
-            title: "Mathematics Final Assessment",
-            subject: "Mathematics",
-            grade: "11",
-            board: "NCERT",
-            type: "Final",
-            totalMarks: 80,
-            duration: 120,
-            questions: 20,
-            createdDate: "2024-01-20",
-            status: "Draft",
-            downloads: 12,
-            difficulty: "Hard",
-            topics: ["Calculus", "Trigonometry", "Algebra", "Geometry"],
-            description: "Final year assessment covering advanced mathematical concepts including calculus, trigonometry, and analytical geometry.",
-            questionBreakdown: {
-                mcq: 8,
-                shortAnswer: 6,
-                longAnswer: 4,
-                practical: 2
-            },
-            markingScheme: {
-                mcq: "1 mark each",
-                shortAnswer: "2-4 marks each",
-                longAnswer: "8-12 marks each",
-                practical: "15 marks each"
-            }
-        },
-        {
-            id: 3,
-            title: "Physics Chapter 5 Quiz",
-            subject: "Physics",
-            grade: "10",
-            board: "ICSE",
-            type: "Quiz",
-            totalMarks: 50,
-            duration: 60,
-            questions: 15,
-            createdDate: "2024-01-25",
-            status: "Published",
-            downloads: 89,
-            difficulty: "Easy",
-            topics: ["Light", "Reflection", "Refraction", "Optical Instruments"],
-            description: "Quick assessment on light and optical phenomena for Class 10 students.",
-            questionBreakdown: {
-                mcq: 10,
-                shortAnswer: 4,
-                longAnswer: 1,
-                practical: 0
-            },
-            markingScheme: {
-                mcq: "2 marks each",
-                shortAnswer: "5 marks each",
-                longAnswer: "10 marks each",
-                practical: "N/A"
-            }
-        }
-    ]);
+    const [assessments, setAssessments] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [filterSubject, setFilterSubject] = useState("all");
     const [filterType, setFilterType] = useState("all");
     const [filterStatus, setFilterStatus] = useState("all");
     const [expandedAssessments, setExpandedAssessments] = useState(new Set());
+
+    // Fetch assessments on component mount
+    useEffect(() => {
+        fetchAssessments();
+    }, []);
+
+    const fetchAssessments = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            const response = await fetch('/api/assessment/get-all-assessment', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            
+            if (data.type === "success") {
+                // Transform API data to match UI expectations
+                const transformedAssessments = (data.assessment || []).map(assessment => ({
+                    id: assessment._id,
+                    title: assessment.assessmentTitle,
+                    subject: assessment.subject,
+                    grade: "N/A", // Not in schema, can be added later
+                    board: "N/A", // Not in schema, can be added later
+                    type: assessment.assessmentType || "General",
+                    totalMarks: assessment.numberOfQuestions * assessment.marksPerQuestion || 0,
+                    duration: assessment.duration || 0,
+                    questions: assessment.numberOfQuestions || 0,
+                    createdDate: new Date(assessment.createdAt).toLocaleDateString(),
+                    status: "Published",
+                    downloads: 0,
+                    difficulty: assessment.difficultyLevel || assessment.difficulty || "Medium",
+                    topics: assessment.topicsCovered || [],
+                    description: `Assessment covering ${assessment.subject} with ${assessment.numberOfQuestions} questions.`,
+                    passingPercentage: assessment.passingPercentage,
+                    marksPerQuestion: assessment.marksPerQuestion,
+                    assessmentFile: assessment.assessmentFile,
+                    questionBreakdown: {
+                        total: assessment.numberOfQuestions || 0
+                    },
+                    markingScheme: {
+                        total: `${assessment.marksPerQuestion} marks each`
+                    }
+                }));
+                setAssessments(transformedAssessments);
+            } else {
+                toast.error(data.message || "Failed to fetch assessments");
+                setAssessments([]);
+            }
+        } catch (error) {
+            console.error('Error fetching assessments:', error);
+            setError(error.message);
+            setAssessments([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const toggleExpanded = (id) => {
         const newExpanded = new Set(expandedAssessments);
@@ -162,9 +138,33 @@ export default function MyAssessments() {
         alert(`Downloading "${assessment.title}" assessment...`);
     };
 
-    const handleDelete = (id) => {
-        if (confirm("Are you sure you want to delete this assessment?")) {
-            setAssessments(prev => prev.filter(assessment => assessment.id !== id));
+    const handleDelete = async (id) => {
+        if (!confirm("Are you sure you want to delete this assessment?")) {
+            return;
+        }
+        
+        try {
+            const toastId = toast.loading('Deleting assessment...');
+            
+            const response = await fetch('/api/assessment/delete-assessment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ assessmentId: id })
+            });
+
+            const data = await response.json();
+            
+            if (data.type === "success") {
+                setAssessments(prev => prev.filter(assessment => assessment.id !== id));
+                toast.success('Assessment deleted successfully', { id: toastId });
+            } else {
+                toast.error(data.message || 'Failed to delete assessment', { id: toastId });
+            }
+        } catch (error) {
+            console.error('Error deleting assessment:', error);
+            toast.error('Failed to delete assessment');
         }
     };
 
@@ -234,7 +234,34 @@ export default function MyAssessments() {
                                     </div>
                                 </div>
 
-                                {/* Search and Filters */}
+                                {/* Loading State */}
+                                {isLoading && (
+                                    <Card>
+                                        <CardContent className="flex flex-col items-center justify-center py-12">
+                                            <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+                                            <h3 className="text-lg font-semibold mb-2">Loading Assessments</h3>
+                                            <p className="text-muted-foreground text-center">
+                                                Please wait while we fetch your assessments...
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {/* Error State */}
+                                {error && !isLoading && (
+                                    <Card>
+                                        <CardContent className="flex flex-col items-center justify-center py-12">
+                                            <FileText className="h-12 w-12 text-destructive mb-4" />
+                                            <h3 className="text-lg font-semibold mb-2">Error Loading Assessments</h3>
+                                            <p className="text-muted-foreground text-center mb-4">{error}</p>
+                                            <Button onClick={fetchAssessments}>Try Again</Button>
+                                        </CardContent>
+                                    </Card>
+                                )}
+
+                                {/* Search and Filters - Only show when not loading and no error */}
+                                {!isLoading && !error && (
+                                <>
                                 <Card>
                                     <CardContent className="pt-6">
                                         <div className="flex flex-col lg:flex-row gap-4">
@@ -512,6 +539,8 @@ export default function MyAssessments() {
                                             </div>
                                         </CardContent>
                                     </Card>
+                                )}
+                                </>
                                 )}
                             </div>
                         </div>

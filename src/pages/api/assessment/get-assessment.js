@@ -1,50 +1,50 @@
-import Curriculum from "@/models/Curriculum";
 import connectDB from "@/middlewares/connectDB";
-import jwt from "jsonwebtoken";
 import Assessment from "@/models/Assessment";
 import mongoose from "mongoose";
+
+// LOCAL DEV MODE - Authentication disabled
+const LOCAL_USER_ID = "local_dev_user";
+
 const handler = async (req, res) => {
     
   if (req.method === "GET") {
     try {
-         const { assessmentId } = req.body;
+      // Get assessmentId from query parameters instead of body
+      const { assessmentId } = req.query;
 
       if (!assessmentId) {
         return res.status(400).json({
           type: "error",
-          message: "assessmentId  is required",
+          message: "assessmentId is required as query parameter",
         });
       }
 
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({
+      // Validate ObjectId
+      if (!mongoose.Types.ObjectId.isValid(assessmentId)) {
+        return res.status(400).json({
           type: "error",
-          message: "Unauthorized",
-        });
-      }
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (!decoded) {
-        return res.status(401).json({
-          type: "error",
-          message: "Invalid token",
+          message: "Invalid assessmentId format",
         });
       }
 
       const assessment = await Assessment.findOne({
-        _id: new mongoose.Types.ObjectId(assessmentId),
-        createdBy: decoded.userId,
+        _id: new mongoose.Types.ObjectId(assessmentId)
       });
 
-      console.log(assessment);
+      if (!assessment) {
+        return res.status(404).json({
+          type: "error",
+          message: "Assessment not found or you don't have permission to view it",
+        });
+      }
 
       return res.status(200).json({
         type: "success",
-        message: "Curriculums retrieved successfully",
+        message: "Assessment retrieved successfully",
         assessment,
       });
     } catch (err) {
-      console.error("assessment retrieve error:", err);
+      console.error("Assessment retrieve error:", err);
       return res.status(500).json({
         type: "error",
         message: "Something went wrong while getting assessment.",

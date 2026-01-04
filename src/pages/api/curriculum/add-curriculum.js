@@ -1,35 +1,70 @@
 import Curriculum from "@/models/Curriculum";
 import connectDB from "@/middlewares/connectDB";
-import jwt from 'jsonwebtoken';
-import { v2 as cloudinary } from "cloudinary";
 
-
-
-
+// LOCAL DEV MODE - Authentication disabled
+const LOCAL_USER_ID = "local_dev_user";
 
 const handler = async (req, res) => {
     if (req.method === "POST") {
         try {
             const { name, subject, grade, board, bookTitle, author, publisher, edition, numberOfChapters, topics, file } = req.body;
-            const token = req.headers.authorization?.split(" ")[1];
-            if (!token) {
-                return res.status(401).json({
+
+            // Validate required fields
+            if (!name || !name.trim()) {
+                return res.status(400).json({
                     type: "error",
-                    message: "Unauthorized"
-                });
-            }
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            if (!decoded) {
-                return res.status(401).json({
-                    type: "error",
-                    message: "Invalid token"
+                    message: "Curriculum name is required"
                 });
             }
 
+            if (!subject || !subject.trim()) {
+                return res.status(400).json({
+                    type: "error",
+                    message: "Subject is required"
+                });
+            }
+
+            if (!grade || !grade.trim()) {
+                return res.status(400).json({
+                    type: "error",
+                    message: "Grade is required"
+                });
+            }
+
+            if (!board || !board.trim()) {
+                return res.status(400).json({
+                    type: "error",
+                    message: "Board is required"
+                });
+            }
+
+            if (!bookTitle || !bookTitle.trim()) {
+                return res.status(400).json({
+                    type: "error",
+                    message: "Book title is required"
+                });
+            }
+
+            // Sanitize and prepare data
+            const sanitizedTopics = Array.isArray(topics) 
+                ? topics.filter(t => t && t.trim())
+                : (topics ? String(topics).split(',').map(t => t.trim()).filter(t => t) : []);
 
             let newCurriculum = new Curriculum({
-                name, subject, grade, board, bookTitle, author, publisher, edition, numberOfChapters, topics, file,uploadedBy:decoded.userId
-            })
+                name: name.trim(),
+                subject: subject.trim(),
+                grade: grade.trim(),
+                board: board.trim(),
+                bookTitle: bookTitle.trim(),
+                author: author ? author.trim() : "Not specified",
+                publisher: publisher ? publisher.trim() : "Not specified",
+                edition: edition ? edition.trim() : "Latest",
+                numberOfChapters: parseInt(numberOfChapters) || 0,
+                topics: sanitizedTopics,
+                file: file || null,
+                uploadedBy: LOCAL_USER_ID
+            });
+            
             await newCurriculum.save();
 
             return res.status(200).json({
@@ -39,10 +74,19 @@ const handler = async (req, res) => {
             });
         } catch (err) {
             console.error("Curriculum addition error:", err);
+            
+            // Handle mongoose validation errors
+            if (err.name === 'ValidationError') {
+                const messages = Object.values(err.errors).map(e => e.message);
+                return res.status(400).json({
+                    type: "error",
+                    message: messages.join(', '),
+                });
+            }
+            
             return res.status(500).json({
                 type: "error",
                 message: "Something went wrong while adding curriculum.",
-                errorCode: "LOGIN_FAILED",
                 error: err.message,
             });
         }

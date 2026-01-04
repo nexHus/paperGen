@@ -1,42 +1,34 @@
-import Curriculum from "@/models/Curriculum";
 import connectDB from "@/middlewares/connectDB";
-import jwt from "jsonwebtoken";
 import Assessment from "@/models/Assessment";
 import mongoose from "mongoose";
 import { ApiResponse } from "@/utilis-Backend/apiResponse.util";
+
+// LOCAL DEV MODE - Authentication disabled
+const LOCAL_USER_ID = "local_dev_user";
+
 const handler = async (req, res) => {
   if (req.method === "POST") {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
-      // console.log("token --------- ",token)
-      if (!token) {
-        return res.status(401).json({
-          type: "error",
-          message: "Unauthorized",
-        });
-      }
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (!decoded) {
-        return res.status(401).json({
-          type: "error",
-          message: "Invalid token",
-        });
-      }
-
       const { assessmentId } = req.body;
 
       if (!assessmentId) {
         return res.status(400).json({
           type: "error",
-          message: "assessmentId  is required",
+          message: "assessmentId is required",
         });
       }
-      console.log("user id : ", decoded.userId);
-      // Check if curriculum exists and belongs to the user
+
+      // Validate ObjectId format
+      if (!mongoose.Types.ObjectId.isValid(assessmentId)) {
+        return res.status(400).json({
+          type: "error",
+          message: "Invalid assessmentId format",
+        });
+      }
+
+      // Check if assessment exists
       const existingAssessment = await Assessment.findOne({
-        _id: new mongoose.Types.ObjectId(assessmentId),
-        createdBy: decoded.userId,
+        _id: new mongoose.Types.ObjectId(assessmentId)
       });
 
       if (!existingAssessment) {

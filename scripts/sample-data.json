@@ -1,0 +1,98 @@
+{
+  "curriculums": [
+    {
+      "title": "Introduction to Computer Science",
+      "subject": "Computer Science",
+      "content": "Computer Science is the study of computation, automation, and information. Computer science spans theoretical disciplines, such as algorithms, theory of computation, and information theory, to practical disciplines including the design and implementation of hardware and software.\n\nKey Concepts:\n\n1. Algorithms: An algorithm is a step-by-step procedure for solving a problem or accomplishing a task. Algorithms are fundamental to computer science as they provide a systematic method for problem-solving. Common types include sorting algorithms (bubble sort, merge sort, quick sort), searching algorithms (binary search, linear search), and graph algorithms.\n\n2. Data Structures: Data structures are ways of organizing and storing data so that they can be accessed and modified efficiently. Common data structures include arrays, linked lists, stacks, queues, trees, and graphs. Each data structure has its own advantages and use cases.\n\n3. Programming Languages: A programming language is a formal language comprising a set of instructions that produce various kinds of output. Popular languages include Python, Java, JavaScript, C++, and Go. Each language has its own syntax and semantics.\n\n4. Object-Oriented Programming (OOP): OOP is a programming paradigm based on the concept of objects, which can contain data and code. The four pillars of OOP are Encapsulation, Abstraction, Inheritance, and Polymorphism.\n\n5. Database Systems: A database is an organized collection of structured information, or data, typically stored electronically. Database management systems (DBMS) allow users to create, read, update, and delete data. Common types include relational databases (SQL) and NoSQL databases.\n\n6. Computer Networks: A computer network is a group of computers that share resources located on or provided by network nodes. Networks can be classified by topology (star, ring, bus), by scale (LAN, WAN), or by technology (Ethernet, WiFi).\n\n7. Operating Systems: An operating system (OS) is system software that manages computer hardware, software resources, and provides common services for computer programs. Examples include Windows, macOS, Linux, and Android.\n\n8. Software Engineering: Software engineering is the systematic application of engineering approaches to the development of software. It involves requirements analysis, design, coding, testing, and maintenance.\n\n9. Artificial Intelligence: AI is the simulation of human intelligence processes by machines. This includes learning, reasoning, and self-correction. Machine learning, a subset of AI, enables computers to learn from data.\n\n10. Cybersecurity: Cybersecurity is the practice of protecting systems, networks, and programs from digital attacks. It involves encryption, firewalls, intrusion detection systems, and security policies."
+    },
+    {
+      "title": "Mathematics for Computing",
+      "subject": "Mathematics",
+      "content": "Mathematics forms the foundation of computer science. This curriculum covers essential mathematical concepts used in computing.\n\n1. Discrete Mathematics: Discrete mathematics deals with mathematical structures that are countable or otherwise distinct and separable. Key topics include:\n- Set Theory: Sets are collections of distinct objects. Operations include union, intersection, and difference.\n- Logic: Propositional logic deals with propositions and their combinations using logical connectives (AND, OR, NOT, IMPLIES).\n- Graph Theory: Studies graphs consisting of vertices connected by edges. Used in network analysis and algorithm design.\n- Combinatorics: Counting techniques including permutations and combinations.\n\n2. Linear Algebra: Studies vectors, matrices, and linear transformations. Essential for:\n- Computer graphics and image processing\n- Machine learning algorithms\n- Data compression\n- Cryptography\n\nKey concepts: Vector spaces, matrix operations, eigenvalues, eigenvectors.\n\n3. Calculus: Studies continuous change. Applications include:\n- Optimization in machine learning (gradient descent)\n- Computer graphics (curves and surfaces)\n- Signal processing\n\n4. Probability and Statistics: Deals with uncertainty and data analysis.\n- Probability: Measures likelihood of events. Includes conditional probability and Bayes' theorem.\n- Statistics: Involves collecting, analyzing, and interpreting data. Includes hypothesis testing and regression analysis.\n\n5. Number Theory: Studies properties of integers. Applications in:\n- Cryptography (RSA algorithm)\n- Hash functions\n- Random number generation\n\n6. Boolean Algebra: Mathematical structure for logic operations. Forms the basis of digital circuit design and computer architecture.\n\n7. Complexity Theory: Studies computational complexity of problems. Classifies problems by difficulty (P, NP, NP-Complete). Important for understanding algorithm efficiency."
+    },
+    {
+      "title": "Web Development Fundamentals",
+      "subject": "Web Development",
+      "content": "Web development is the work involved in developing websites for the Internet or an intranet. This curriculum covers front-end and back-end development.\n\n1. HTML (HyperText Markup Language): HTML is the standard markup language for creating web pages. Key elements include:\n- Document structure: <!DOCTYPE>, <html>, <head>, <body>\n- Text elements: <h1>-<h6>, <p>, <span>, <div>\n- Lists: <ul>, <ol>, <li>\n- Links: <a href=\"url\">\n- Images: <img src=\"url\" alt=\"description\">\n- Forms: <form>, <input>, <button>, <select>\n- Semantic elements: <header>, <nav>, <main>, <article>, <section>, <footer>\n\n2. CSS (Cascading Style Sheets): CSS describes how HTML elements should be displayed.\n- Selectors: element, class (.class), ID (#id), attribute\n- Box Model: margin, border, padding, content\n- Layout: Flexbox, Grid, positioning\n- Responsive Design: media queries, viewport units\n- Animations and transitions\n\n3. JavaScript: JavaScript is a programming language that enables interactive web pages.\n- Variables: let, const, var\n- Data Types: string, number, boolean, object, array\n- Functions: function declarations, arrow functions\n- DOM Manipulation: document.getElementById(), querySelector()\n- Events: addEventListener, click, submit, load\n- Async Programming: Promises, async/await, fetch API\n\n4. React.js: A JavaScript library for building user interfaces.\n- Components: Functional and class components\n- Props and State: Managing data flow\n- Hooks: useState, useEffect, useContext\n- JSX: JavaScript XML syntax\n- Virtual DOM: Efficient rendering\n\n5. Node.js: JavaScript runtime for server-side development.\n- Express.js: Web application framework\n- RESTful APIs: Creating endpoints for CRUD operations\n- Middleware: Request processing\n- Database integration: MongoDB, PostgreSQL\n\n6. APIs (Application Programming Interfaces): Enable communication between different software applications.\n- REST: Representational State Transfer\n- HTTP Methods: GET, POST, PUT, DELETE\n- JSON: JavaScript Object Notation for data exchange\n\n7. Version Control with Git:\n- Repositories: Local and remote\n- Commits: Saving changes\n- Branches: Parallel development\n- Merging: Combining branches\n- GitHub: Collaboration platform"
+    }
+  ],
+  "sampleQuestions": {
+    "computerScience": [
+      {
+        "type": "MCQ",
+        "question": "Which data structure follows the First-In-First-Out (FIFO) principle?",
+        "options": ["Stack", "Queue", "Array", "Tree"],
+        "correctAnswer": 1,
+        "marks": 1,
+        "difficulty": "Easy",
+        "topic": "Data Structures"
+      },
+      {
+        "type": "MCQ",
+        "question": "What are the four pillars of Object-Oriented Programming?",
+        "options": [
+          "Variables, Functions, Classes, Objects",
+          "Encapsulation, Abstraction, Inheritance, Polymorphism",
+          "Input, Process, Output, Storage",
+          "Create, Read, Update, Delete"
+        ],
+        "correctAnswer": 1,
+        "marks": 1,
+        "difficulty": "Medium",
+        "topic": "Object-Oriented Programming"
+      },
+      {
+        "type": "Short Answer",
+        "question": "Explain the difference between a compiler and an interpreter.",
+        "marks": 3,
+        "difficulty": "Medium",
+        "topic": "Programming Languages",
+        "rubric": "Award marks for: definition of compiler (1), definition of interpreter (1), key differences (1)"
+      },
+      {
+        "type": "Long Answer",
+        "question": "Discuss the importance of algorithm complexity analysis in software development. Include examples of Big O notation.",
+        "marks": 5,
+        "difficulty": "Hard",
+        "topic": "Algorithms",
+        "rubric": "Award marks for: definition of complexity (1), importance explained (1), Big O examples (2), practical application (1)"
+      }
+    ],
+    "webDevelopment": [
+      {
+        "type": "MCQ",
+        "question": "Which HTML tag is used to create a hyperlink?",
+        "options": ["<link>", "<href>", "<a>", "<url>"],
+        "correctAnswer": 2,
+        "marks": 1,
+        "difficulty": "Easy",
+        "topic": "HTML"
+      },
+      {
+        "type": "MCQ",
+        "question": "What CSS property is used to change the text color of an element?",
+        "options": ["text-color", "font-color", "color", "text-style"],
+        "correctAnswer": 2,
+        "marks": 1,
+        "difficulty": "Easy",
+        "topic": "CSS"
+      },
+      {
+        "type": "Short Answer",
+        "question": "Explain what the Virtual DOM is in React and why it improves performance.",
+        "marks": 3,
+        "difficulty": "Medium",
+        "topic": "React.js",
+        "rubric": "Award marks for: definition (1), how it works (1), performance benefits (1)"
+      },
+      {
+        "type": "Long Answer",
+        "question": "Describe the process of creating a RESTful API using Node.js and Express. Include the steps for setting up routes and handling HTTP methods.",
+        "marks": 5,
+        "difficulty": "Hard",
+        "topic": "Node.js",
+        "rubric": "Award marks for: Express setup (1), route creation (1), HTTP methods explained (2), example code/flow (1)"
+      }
+    ]
+  }
+}

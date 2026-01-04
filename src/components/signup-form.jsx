@@ -21,40 +21,83 @@ export function SignupForm({
 }) {
   const [name, setName]= useState("")
   const [email, setEmail]= useState("")
-    const [password, setPassword]= useState("");
-    const router = useRouter();
-    const signup = async() => {
-      try {
-        toast.loading("Creating account...")
-        const data = {
-          name: name,
-          email: email,
-          password: password
-        }
-        const req = await fetch("/api/auth/signup", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(data),
-        });
-        const res = await req.json();
-        console.log(res);
-        toast.dismiss();
-        if (res.type == "success") {
-          toast.success(res.message)
-          router.push("/login")
-        }
-        else {
-          toast.error(res.message)
-        }
-      }
-      catch(error) {
-        toast.dismiss();
-        toast.error("An error occurred while creating your account. Please try again later.");
-      }
-      
+  const [password, setPassword]= useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  // Client-side validation
+  const validateForm = () => {
+    if (!name || !name.trim()) {
+      toast.error("Please enter your name");
+      return false;
     }
+    if (name.trim().length < 2) {
+      toast.error("Name must be at least 2 characters");
+      return false;
+    }
+    if (!email || !email.trim()) {
+      toast.error("Please enter your email");
+      return false;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return false;
+    }
+    if (!password) {
+      toast.error("Please enter a password");
+      return false;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return false;
+    }
+    return true;
+  };
+
+  // Handle Enter key press
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !isLoading) {
+      signup();
+    }
+  };
+
+  const signup = async() => {
+    if (!validateForm()) return;
+    
+    try {
+      setIsLoading(true);
+      toast.loading("Creating account...", { id: 'signup' });
+      const data = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password: password
+      }
+      const req = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      const res = await req.json();
+      console.log(res);
+      toast.dismiss('signup');
+      if (res.type == "success") {
+        toast.success(res.message)
+        router.push("/login")
+      }
+      else {
+        toast.error(res.message)
+      }
+    }
+    catch(error) {
+      toast.dismiss('signup');
+      toast.error("An error occurred while creating your account. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
   return (
     (<div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -73,29 +116,51 @@ export function SignupForm({
 
                 <div className="grid gap-3">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="m@example.com" required />
+                  <Input 
+                    id="email" 
+                    value={email} 
+                    onChange={e=>setEmail(e.target.value)} 
+                    onKeyPress={handleKeyPress}
+                    type="email" 
+                    placeholder="m@example.com" 
+                    disabled={isLoading}
+                    required 
+                  />
                 </div>
 
                 <div className="grid gap-3">
                   <div className="flex items-center">
                     <Label htmlFor="name">Full Name</Label>
-                    
                   </div>
-                  <Input id="name" value={name} onChange={e=>setName(e.target.value)} required />
+                  <Input 
+                    id="name" 
+                    value={name} 
+                    onChange={e=>setName(e.target.value)} 
+                    onKeyPress={handleKeyPress}
+                    placeholder="John Doe"
+                    disabled={isLoading}
+                    required 
+                  />
                 </div>
 
                 <div className="grid gap-3">
                   <div className="flex items-center">
                     <Label htmlFor="password">Password</Label>
-                    
                   </div>
-                  <Input value={password} onChange={e=>setPassword(e.target.value)} id="password" type="password" required />
+                  <Input 
+                    value={password} 
+                    onChange={e=>setPassword(e.target.value)} 
+                    onKeyPress={handleKeyPress}
+                    id="password" 
+                    type="password" 
+                    placeholder="Min. 6 characters"
+                    disabled={isLoading}
+                    required 
+                  />
                 </div>
 
-
-                
-                <Button onClick={signup} className="w-full">
-                  Signup
+                <Button onClick={signup} className="w-full" disabled={isLoading}>
+                  {isLoading ? "Creating Account..." : "Signup"}
                 </Button>
               </div>
               <div className="text-center text-sm">

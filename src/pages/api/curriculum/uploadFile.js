@@ -115,32 +115,63 @@ const handler = async (req, res) => {
         });
       }
 
-      // Step 3: Upload to Cloudinary
-      console.log("Uploading to Cloudinary...");
-      const cloudinaryResult = await cloudinary.uploader.upload(uploadedFile.filepath, {
-        resource_type: "raw",
-        folder: "curriculum_pdfs",
-        public_id: `curriculum_${Date.now()}`,
-        format: "pdf",
-      });
+      // Step 3: Upload to Cloudinary (with fallback for local-only mode)
+      let cloudinaryResult = null;
+      let documentId = `local_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      let fileUrl = null;
 
-      // Step 4: Save documents to ChromaDB (ChromaDB will generate embeddings automatically)
-      console.log("Saving documents to ChromaDB...");
-      const chromaManager = new ChromaDBManager();
-      const documentId = cloudinaryResult.public_id;
-      
-      await chromaManager.addDocuments(chunks, {
-        documentId: documentId,
-        fileName: uploadedFile.originalFilename,
-        uploadedAt: new Date().toISOString(),
-      });
+      // Check if Cloudinary is configured
+      const cloudinaryConfigured = process.env.CLOUDINARY_CLOUD_NAME && 
+                                   process.env.CLOUDINARY_API_KEY && 
+                                   process.env.CLOUDINARY_API_SECRET;
+
+      if (cloudinaryConfigured) {
+        try {
+          console.log("Uploading to Cloudinary...");
+          cloudinaryResult = await cloudinary.uploader.upload(uploadedFile.filepath, {
+            resource_type: "raw",
+            folder: "curriculum_pdfs",
+            public_id: `curriculum_${Date.now()}`,
+            format: "pdf",
+          });
+          documentId = cloudinaryResult.public_id;
+          fileUrl = cloudinaryResult.secure_url;
+        } catch (cloudinaryError) {
+          console.error("Cloudinary upload failed:", cloudinaryError.message);
+          // Continue without Cloudinary - file won't be stored remotely
+        }
+      } else {
+        console.log("Cloudinary not configured - storing text content only");
+      }
+
+      // Step 4: Save documents to ChromaDB (with graceful fallback)
+      let chromaSaved = false;
+      try {
+        const chromaManager = new ChromaDBManager();
+        const chromaAvailable = await chromaManager.checkConnection();
+        
+        if (chromaAvailable) {
+          console.log("Saving documents to ChromaDB...");
+          await chromaManager.addDocuments(chunks, {
+            documentId: documentId,
+            fileName: uploadedFile.originalFilename,
+            uploadedAt: new Date().toISOString(),
+          });
+          chromaSaved = true;
+        } else {
+          console.log("ChromaDB not available - skipping embedding storage");
+        }
+      } catch (chromaError) {
+        console.error("ChromaDB save failed:", chromaError.message);
+        // Continue without ChromaDB - search functionality will be limited
+      }
 
       // Step 5: Save curriculum info to database
       const curriculumData = {
         fileName: uploadedFile.originalFilename,
-        fileUrl: cloudinaryResult.secure_url,
-        publicId: cloudinaryResult.public_id,
-        textContent: cleanedText.substring(0, 2000), // Store first 2000 chars as preview
+        fileUrl: fileUrl || null,
+        publicId: documentId,
+        textContent: cleanedText.substring(0, 5000), // Store more text for local search fallback
         totalChunks: chunks.length,
         uploadedAt: new Date(),
         // Add user ID if authentication is enabled
@@ -155,14 +186,18 @@ const handler = async (req, res) => {
 
       return res.status(200).json({
         type: "success",
-        message: "File uploaded, processed, and embeddings saved successfully",
+        message: chromaSaved 
+          ? "File uploaded, processed, and embeddings saved successfully"
+          : "File processed and saved (ChromaDB unavailable - search may be limited)",
         data: {
-          fileUrl: cloudinaryResult.secure_url,
+          fileUrl: fileUrl,
           fileName: uploadedFile.originalFilename,
-          publicId: cloudinaryResult.public_id,
+          publicId: documentId,
           documentId: documentId,
           totalChunks: chunks.length,
           textPreview: cleanedText.substring(0, 500) + "...",
+          chromaEnabled: chromaSaved,
+          cloudinaryEnabled: !!cloudinaryResult,
         },
       });
 
