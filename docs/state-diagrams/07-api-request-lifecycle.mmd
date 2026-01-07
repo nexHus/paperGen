@@ -1,0 +1,176 @@
+---
+title: PaperGenie - API Request Lifecycle State Chart
+---
+stateDiagram-v2
+    [*] --> RequestInitiated: User Action Triggers API Call
+
+    state RequestInitiated {
+        [*] --> PrepareRequest
+        
+        state PrepareRequest {
+            [*] --> BuildHeaders
+            BuildHeaders --> AddAuthToken: Protected Route
+            BuildHeaders --> SkipAuth: Public Route
+            AddAuthToken --> BuildBody
+            SkipAuth --> BuildBody
+            BuildBody --> RequestReady
+        }
+    }
+
+    RequestInitiated --> UIFeedback: Request Ready
+
+    state UIFeedback {
+        [*] --> ShowLoadingState
+        
+        state ShowLoadingState {
+            [*] --> ToastLoading: toast.loading()
+            [*] --> SpinnerVisible: setIsLoading(true)
+            [*] --> ButtonDisabled: Disable Submit
+        }
+    }
+
+    UIFeedback --> MakingRequest
+
+    state MakingRequest {
+        [*] --> FetchCall
+        
+        state FetchCall {
+            [*] --> SendingRequest
+            SendingRequest --> WaitingForResponse
+            WaitingForResponse --> ResponseReceived: Server Responds
+            WaitingForResponse --> NetworkError: Connection Failed
+            WaitingForResponse --> Timeout: Request Timeout
+        }
+    }
+
+    MakingRequest --> ServerProcessing: Request Sent
+
+    state ServerProcessing {
+        [*] --> ReceiveRequest
+        
+        state ReceiveRequest {
+            [*] --> ParseBody
+            ParseBody --> ValidateInput
+        }
+
+        state AuthMiddleware {
+            [*] --> CheckAuthHeader
+            CheckAuthHeader --> ExtractToken: Header Present
+            CheckAuthHeader --> Return401: No Header
+            ExtractToken --> VerifyJWT
+            VerifyJWT --> TokenValid: Valid JWT
+            VerifyJWT --> Return401: Invalid/Expired
+            TokenValid --> AttachUserId
+        }
+
+        state DBMiddleware {
+            [*] --> CheckConnection
+            CheckConnection --> UseExisting: Connected
+            CheckConnection --> CreateNew: Not Connected
+            CreateNew --> ConnectionReady
+            UseExisting --> ConnectionReady
+            ConnectionReady --> [*]
+        }
+
+        ValidateInput --> AuthMiddleware: Protected Route
+        ValidateInput --> BusinessLogic: Public Route
+        AuthMiddleware --> BusinessLogic: Auth Success
+        AuthMiddleware --> ErrorResponse: Auth Failed
+
+        state BusinessLogic {
+            [*] --> ProcessRequest
+            ProcessRequest --> DatabaseOperation
+            DatabaseOperation --> OperationSuccess: Success
+            DatabaseOperation --> OperationFailed: Error
+        }
+
+        BusinessLogic --> SuccessResponse: Operation Success
+        BusinessLogic --> ErrorResponse: Operation Failed
+    }
+
+    state SuccessResponse {
+        [*] --> BuildSuccessJSON
+        
+        state BuildSuccessJSON {
+            status: 200/201
+            type: "success"
+            message: "Success message"
+            data: { ... }
+        }
+    }
+
+    state ErrorResponse {
+        [*] --> BuildErrorJSON
+        
+        state BuildErrorJSON {
+            status: 400/401/404/409/500
+            type: "error"
+            message: "Error message"
+            errorCode: "ERROR_CODE"
+        }
+    }
+
+    ServerProcessing --> ResponseHandling: Response Sent
+
+    state ResponseHandling {
+        [*] --> ParseResponse
+        ParseResponse --> CheckResponseType
+        
+        state CheckResponseType {
+            [*] --> IsSuccess: type === "success"
+            [*] --> IsError: type === "error"
+        }
+    }
+
+    state HandleSuccess {
+        [*] --> DismissLoading
+        DismissLoading --> ShowSuccessToast
+        ShowSuccessToast --> UpdateLocalState
+        UpdateLocalState --> TriggerUIUpdate
+        TriggerUIUpdate --> NavigateIfNeeded
+    }
+
+    state HandleError {
+        [*] --> DismissLoading
+        DismissLoading --> ShowErrorToast
+        ShowErrorToast --> LogError
+        LogError --> EnableRetry
+    }
+
+    ResponseHandling --> HandleSuccess: Success Response
+    ResponseHandling --> HandleError: Error Response
+
+    HandleSuccess --> [*]: Complete
+    HandleError --> [*]: Complete
+
+    note right of PrepareRequest
+        Standard Headers:
+        - Content-Type: application/json
+        - Authorization: Bearer <token>
+    end note
+
+    note right of AuthMiddleware
+        JWT Verification:
+        - Secret: process.env.JWT_SECRET
+        - Extracts: userId from payload
+        - Attaches: req.userId
+    end note
+
+    note right of BuildSuccessJSON
+        Success Response Format:
+        {
+            type: "success",
+            message: "...",
+            data: { ... }
+        }
+    end note
+
+    note right of BuildErrorJSON
+        Error Codes:
+        - MISSING_FIELDS
+        - USER_NOT_FOUND
+        - WRONG_PASSWORD
+        - EMAIL_EXISTS
+        - UNAUTHORIZED
+        - SERVER_ERROR
+    end note
