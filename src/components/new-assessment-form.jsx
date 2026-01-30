@@ -28,7 +28,6 @@ export function NewAssessmentForm({
     ...props
 }) {
     const [formData, setFormData] = useState({
-        subject: '',
         assessmentType: ''
     });
 
@@ -41,7 +40,7 @@ export function NewAssessmentForm({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (formData.subject && formData.assessmentType) {
+        if (formData.assessmentType) {
             onSubmit?.(formData);
         }
     };
@@ -52,32 +51,12 @@ export function NewAssessmentForm({
                 <CardHeader>
                     <CardTitle>New Assessment</CardTitle>
                     <CardDescription>
-                        Select the subject and assessment type to get started
+                        Select the assessment type to get started
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit}>
                         <div className="flex flex-col gap-6">
-                            <div className="grid gap-3">
-                                <Label htmlFor="subject">Subject</Label>
-                                <Select onValueChange={(value) => handleInputChange('subject', value)}>
-                                    <SelectTrigger className="w-[100%]">
-                                        <SelectValue placeholder="Select a Subject" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            <SelectLabel>Select Subject</SelectLabel>
-                                            <SelectItem value="cs">Computer Science</SelectItem>
-                                            <SelectItem value="physics">Physics</SelectItem>
-                                            <SelectItem value="chemistry">Chemistry</SelectItem>
-                                            <SelectItem value="mathematics">Mathematics</SelectItem>
-                                            <SelectItem value="biology">Biology</SelectItem>
-                                            <SelectItem value="english">English</SelectItem>
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            
                             <div className="grid gap-3">
                                 <Label htmlFor="assessmentType">Assessment Type</Label>
                                 <Select onValueChange={(value) => handleInputChange('assessmentType', value)}>
@@ -101,7 +80,7 @@ export function NewAssessmentForm({
                                 <Button 
                                     type="submit" 
                                     className="w-full"
-                                    disabled={!formData.subject || !formData.assessmentType}
+                                    disabled={!formData.assessmentType}
                                 >
                                     Next
                                 </Button>

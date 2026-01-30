@@ -1,0 +1,76 @@
+# PaperGenie System Startup Instructions
+
+This document contains all the commands required to start the PaperGenie system. The system consists of three components that need to run simultaneously:
+1. ChromaDB (Vector Database)
+2. Flask Embedding API (Backend for embeddings)
+3. Next.js Application (Frontend & Main Backend)
+
+## Prerequisites
+- Node.js installed
+- Python installed
+
+---
+
+## Option 1: Quick Start (Windows)
+
+If you are on Windows, you can simply run the provided batch script which opens all services in separate windows:
+
+```cmd
+.\scripts\start-dev.bat
+```
+
+---
+
+## Option 2: Manual Startup
+
+Run each of the following components in a **separate terminal** window.
+
+### 1. Start ChromaDB Server
+
+This starts the vector database on port 8000.
+
+```cmd
+chroma run --host localhost --port 8000
+```
+
+### 2. Start Flask Embedding API
+
+This starts the Python embedding service on port 5000.
+
+**First time setup (if needed):**
+```cmd
+cd flask_embedding_api
+python -m venv embedding_env
+.\embedding_env\Scripts\activate
+pip install -r requirements.txt
+```
+
+**To Run:**
+```cmd
+cd flask_embedding_api
+.\embedding_env\Scripts\activate
+python app.py
+```
+
+### 3. Start Next.js Frontend
+
+This starts the main application on port 3000.
+
+**First time setup (if needed):**
+```cmd
+npm install
+```
+
+**To Run:**
+```cmd
+npm run dev
+```
+
+---
+
+## Accessing the Application
+
+Once all services are running:
+- **Main App**: http://localhost:3000
+- **Flask API**: http://localhost:5000
+- **ChromaDB**: http://localhost:8000

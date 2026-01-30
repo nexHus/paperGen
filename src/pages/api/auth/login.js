@@ -51,6 +51,7 @@ const handler = async (req, res) => {
         userId: user._id,
         email: user.email,
         name: user.name,
+        bio: user.bio || "",
       };
 
       return res.status(200).json({

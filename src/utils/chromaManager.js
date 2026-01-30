@@ -1,5 +1,33 @@
 import { ChromaClient } from 'chromadb';
-import { DefaultEmbeddingFunction } from '@chroma-core/default-embed';
+
+// Custom embedding function that uses our Flask API
+class FlaskEmbeddingFunction {
+  constructor(apiUrl) {
+    this.apiUrl = apiUrl || "http://localhost:5000";
+  }
+
+  async generate(texts) {
+    try {
+      const response = await fetch(`${this.apiUrl}/embed`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ texts: texts }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Embedding API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.embeddings;
+    } catch (error) {
+      console.error('Error generating embeddings:', error);
+      throw error;
+    }
+  }
+}
 
 /**
  * ChromaDB utility class for managing document embeddings
@@ -12,7 +40,11 @@ class ChromaDBManager {
       path: this.chromaUrl
     });
     this.collectionName = process.env.CHROMA_COLLECTION_NAME || "curriculum_documents";
-    this.embeddingFunction = new DefaultEmbeddingFunction();
+    
+    // Use Flask API for embeddings
+    const flaskApiUrl = process.env.FLASK_EMBEDDING_API_URL || "http://localhost:5000";
+    this.embeddingFunction = new FlaskEmbeddingFunction(flaskApiUrl);
+    
     this.isConnected = null; // null = unknown, true = connected, false = not connected
   }
 
@@ -104,16 +136,23 @@ class ChromaDBManager {
    * Search for similar documents using query text
    * @param {string} queryText - Query text to search for
    * @param {number} nResults - Number of results to return
+   * @param {Object} where - Optional filter object (e.g., { documentId: "123" })
    * @returns {Promise<Object>} Search results
    */
-  async search(queryText, nResults = 5) {
+  async search(queryText, nResults = 5, where = null) {
     try {
       const collection = await this.getCollection();
       
-      const results = await collection.query({
+      const queryOptions = {
         queryTexts: [queryText],
         nResults: nResults
-      });
+      };
+
+      if (where) {
+        queryOptions.where = where;
+      }
+      
+      const results = await collection.query(queryOptions);
 
       return results;
     } catch (error) {

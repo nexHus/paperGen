@@ -49,6 +49,8 @@ import {
 } from "lucide-react"
 import toast from "react-hot-toast"
 
+import { generateAssessmentPDF } from "@/utils/pdfGenerator";
+
 export default function MyAssessments() {
     const [assessments, setAssessments] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -88,20 +90,21 @@ export default function MyAssessments() {
                     grade: "N/A", // Not in schema, can be added later
                     board: "N/A", // Not in schema, can be added later
                     type: assessment.assessmentType || "General",
-                    totalMarks: assessment.numberOfQuestions * assessment.marksPerQuestion || 0,
+                    totalMarks: assessment.questionCount * assessment.marksPerQuestion || 0,
                     duration: assessment.duration || 0,
-                    questions: assessment.numberOfQuestions || 0,
+                    questions: assessment.questions || [], // Store the full questions array
+                    questionCount: assessment.numberOfQuestions || 0, // Store the count separately
                     createdDate: new Date(assessment.createdAt).toLocaleDateString(),
                     status: "Published",
                     downloads: 0,
                     difficulty: assessment.difficultyLevel || assessment.difficulty || "Medium",
                     topics: assessment.topicsCovered || [],
-                    description: `Assessment covering ${assessment.subject} with ${assessment.numberOfQuestions} questions.`,
+                    description: `Assessment covering ${assessment.subject} with ${assessment.questionCount} questions.`,
                     passingPercentage: assessment.passingPercentage,
                     marksPerQuestion: assessment.marksPerQuestion,
                     assessmentFile: assessment.assessmentFile,
                     questionBreakdown: {
-                        total: assessment.numberOfQuestions || 0
+                        total: assessment.questionCount || 0
                     },
                     markingScheme: {
                         total: `${assessment.marksPerQuestion} marks each`
@@ -132,10 +135,14 @@ export default function MyAssessments() {
     };
 
     const handleDownload = (assessment) => {
-        // Simulate download functionality
-        console.log(`Downloading assessment: ${assessment.title}`);
-        // In real implementation, this would trigger file download
-        alert(`Downloading "${assessment.title}" assessment...`);
+        try {
+            toast.loading("Generating PDF...", { id: "pdf-gen" });
+            generateAssessmentPDF(assessment);
+            toast.success("PDF downloaded successfully!", { id: "pdf-gen" });
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            toast.error("Failed to generate PDF", { id: "pdf-gen" });
+        }
     };
 
     const handleDelete = async (id) => {
@@ -364,7 +371,7 @@ export default function MyAssessments() {
                                                                 </span>
                                                                 <span className="flex items-center gap-2">
                                                                     <Users className="w-4 h-4" />
-                                                                    {assessment.questions} questions
+                                                                    {assessment.questionCount} questions
                                                                 </span>
                                                                 <span className="flex items-center gap-2">
                                                                     <Download className="w-4 h-4" />

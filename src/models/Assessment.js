@@ -64,7 +64,7 @@ const assessmentSchema = new Schema(
       enum: ["draft", "published", "archived"],
       default: "draft"
     },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    createdBy: { type: String }, // Changed from ObjectId to String to support local dev users
   },
   {
     timestamps: true,

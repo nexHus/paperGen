@@ -14,6 +14,7 @@ const userSchema = new Schema({
     enum: ['user', 'admin', 'teacher', 'student'],
     default: 'user'
   },
+  bio: { type: String, default: "" },
   avatar: { type: String },
   lastLogin: { type: Date },
   isActive: { type: Boolean, default: true },

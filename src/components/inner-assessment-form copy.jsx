@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +22,8 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import toast from "react-hot-toast"
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 
 export function InnerAssessmentForm({
     className,
@@ -39,13 +41,31 @@ export function InnerAssessmentForm({
         numberOfQuestions: '',
         marksPerQuestion: '',
         instructions: '',
-        topicsCovered: ''
+        topicsCovered: '',
+        curriculumId: ''
     });
 
+    const [curricula, setCurricula] = useState([]);
     const [showQuestionDetails, setShowQuestionDetails] = useState(!!initialData?.assessmentType);
     const [isGenerating, setIsGenerating] = useState(false);
     const [showWarningModal, setShowWarningModal] = useState(false);
     const [warningData, setWarningData] = useState(null);
+    const [generatedAssessment, setGeneratedAssessment] = useState(null);
+
+    useEffect(() => {
+        const fetchCurricula = async () => {
+            try {
+                const response = await fetch('/api/curriculum/get-curriculums');
+                const data = await response.json();
+                if (data.type === 'success') {
+                    setCurricula(data.curriculums);
+                }
+            } catch (error) {
+                console.error('Failed to fetch curricula:', error);
+            }
+        };
+        fetchCurricula();
+    }, []);
 
     const handleInputChange = (field, value) => {
         // Special handling for passing percentage to restrict range
@@ -56,6 +76,27 @@ export function InnerAssessmentForm({
                 setFormData(prev => ({
                     ...prev,
                     [field]: value
+                }));
+            }
+            return;
+        }
+
+        // Special handling for curriculum selection
+        if (field === 'curriculumId') {
+            const selectedCurriculum = curricula.find(c => c._id === value);
+            if (selectedCurriculum) {
+                setFormData(prev => ({
+                    ...prev,
+                    [field]: value,
+                    subject: selectedCurriculum.subject || 'General',
+                    topicsCovered: selectedCurriculum.topics ? selectedCurriculum.topics.join(', ') : prev.topicsCovered
+                }));
+            } else {
+                setFormData(prev => ({
+                    ...prev,
+                    [field]: value,
+                    subject: 'General',
+                    topicsCovered: ''
                 }));
             }
             return;
@@ -96,9 +137,14 @@ export function InnerAssessmentForm({
                 : 0;
             
             // Prepare topics as array
-            const topicsArray = formData.topicsCovered
+            let topicsArray = formData.topicsCovered
                 ? formData.topicsCovered.split(',').map(t => t.trim()).filter(t => t)
-                : [formData.subject]; // Use subject as default topic if none provided
+                : [];
+            
+            // If no topics provided, use subject or default
+            if (topicsArray.length === 0) {
+                topicsArray = [formData.subject || "General Knowledge"];
+            }
             
             // First, try to generate questions using AI
             console.log('Generating AI questions...');
@@ -112,12 +158,13 @@ export function InnerAssessmentForm({
                     numberOfQuestions: parseInt(formData.numberOfQuestions) || 10,
                     assessmentType: formData.assessmentType,
                     difficulty: formData.difficultyLevel,
-                    subject: formData.subject,
+                    subject: formData.subject || "General Knowledge",
                     title: formData.title,
                     duration: parseInt(formData.duration) || 60,
                     marksPerQuestion: parseInt(formData.marksPerQuestion) || 1,
                     passingPercentage: parseInt(formData.passingPercentage) || 40,
-                    useAI: true
+                    useAI: true,
+                    curriculumId: formData.curriculumId === 'none' ? null : formData.curriculumId
                 })
             });
             
@@ -128,21 +175,7 @@ export function InnerAssessmentForm({
                 toast.success(`Assessment created with ${aiResult.data.totalQuestions} questions!`);
                 console.log('Generated Assessment:', aiResult.data);
                 
-                // Reset form after successful creation
-                setFormData({
-                    subject: '',
-                    assessmentType: '',
-                    title: '',
-                    duration: '',
-                    passingPercentage: '',
-                    difficultyLevel: '',
-                    numberOfQuestions: '',
-                    marksPerQuestion: '',
-                    instructions: '',
-                    topicsCovered: ''
-                });
-                // Go back to initial form
-                if (onBack) onBack();
+                setGeneratedAssessment(aiResult.data);
             } else {
                 toast.error(aiResult.message || 'Failed to generate assessment');
             }
@@ -156,11 +189,199 @@ export function InnerAssessmentForm({
         }
     };
 
+    const handleDownloadPDF = async () => {
+        if (!generatedAssessment) return;
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        
+        // Helper to load image for watermark
+        const loadImage = (src) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.onerror = reject;
+                img.src = src;
+            });
+        };
+
+        let watermarkDataUrl = null;
+        try {
+            watermarkDataUrl = await loadImage('/uet-logo.svg');
+        } catch (error) {
+            console.error("Could not load watermark", error);
+        }
+        
+        // Header (First Page)
+        doc.setFontSize(20);
+        doc.text(generatedAssessment.title || 'Assessment', pageWidth / 2, 20, { align: 'center' });
+        
+        doc.setFontSize(12);
+        doc.text(`Subject: ${generatedAssessment.subject}`, 20, 35);
+        doc.text(`Duration: ${generatedAssessment.duration} mins`, pageWidth - 20, 35, { align: 'right' });
+        doc.text(`Total Marks: ${generatedAssessment.totalMarks}`, 20, 42);
+        doc.text(`Passing Marks: ${generatedAssessment.passingMarks}`, pageWidth - 20, 42, { align: 'right' });
+        
+        doc.line(20, 48, pageWidth - 20, 48);
+        
+        let yPos = 60;
+        
+        // Questions
+        generatedAssessment.questions.forEach((q, index) => {
+            // Check if we need a new page
+            if (yPos > 250) {
+                doc.addPage();
+                yPos = 30;
+            }
+            
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            
+            // Question text with wrapping
+            const questionText = `Q${index + 1}: ${q.question} (${q.marks} marks)`;
+            const splitQuestion = doc.splitTextToSize(questionText, pageWidth - 40);
+            doc.text(splitQuestion, 20, yPos);
+            yPos += (splitQuestion.length * 7) + 5;
+            
+            doc.setFont(undefined, 'normal');
+            
+            // Options for MCQs
+            if ((q.type === 'MCQ' || q.type === 'mcq') && q.options) {
+                q.options.forEach((opt, optIndex) => {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 30;
+                    }
+                    const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D...
+                    doc.text(`${optionLabel}. ${opt}`, 30, yPos);
+                    yPos += 7;
+                });
+                yPos += 5;
+            } else if (q.type === 'Short Answer' || q.type === 'shortQuestions') {
+                // Add lines for short answer
+                yPos += 5;
+                if (yPos > 270) { doc.addPage(); yPos = 30; }
+                doc.setDrawColor(200);
+                doc.line(20, yPos, pageWidth - 20, yPos);
+                doc.line(20, yPos + 8, pageWidth - 20, yPos + 8);
+                doc.line(20, yPos + 16, pageWidth - 20, yPos + 16);
+                yPos += 24;
+            } else if (q.type === 'Long Answer' || q.type === 'longQuestions') {
+                // Add lines for long answer
+                yPos += 5;
+                if (yPos > 250) { doc.addPage(); yPos = 30; }
+                doc.setDrawColor(200);
+                for (let i = 0; i < 6; i++) {
+                    doc.line(20, yPos + (i * 8), pageWidth - 20, yPos + (i * 8));
+                }
+                yPos += 56;
+            } else {
+                // Default space
+                yPos += 20;
+            }
+            
+            yPos += 5;
+        });
+
+        // Add Branding (Watermark, Header, Footer) to ALL pages
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            
+            // Watermark
+            if (watermarkDataUrl) {
+                try {
+                    // Attempt to set opacity
+                    doc.saveGraphicsState();
+                    doc.setGState(new doc.GState({ opacity: 0.1 }));
+                    
+                    const imgWidth = 120; 
+                    const imgHeight = 120;
+                    const x = (pageWidth - imgWidth) / 2;
+                    const y = (pageHeight - imgHeight) / 2;
+                    doc.addImage(watermarkDataUrl, 'PNG', x, y, imgWidth, imgHeight);
+                    
+                    doc.restoreGraphicsState();
+                } catch (e) {
+                    console.log("Watermark error", e);
+                }
+            }
+
+            // Footer
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            const footerText = "University of Engineering and Technology Lahore, New Campus";
+            doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            
+            // Page Number
+            doc.text(`Page ${i} of ${totalPages}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
+            
+            // Reset text color
+            doc.setTextColor(0);
+        }
+        
+        doc.save(`${generatedAssessment.title.replace(/\s+/g, '_')}.pdf`);
+        toast.success('PDF downloaded successfully!');
+    };
+
+    if (generatedAssessment) {
+        return (
+            <div className={cn("w-[50vw] flex flex-col gap-6", className)} {...props}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-green-600">Assessment Generated Successfully!</CardTitle>
+                        <CardDescription>
+                            Your assessment is ready. You can download it now.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="bg-slate-50 p-6 rounded-lg border">
+                            <h3 className="font-bold text-lg mb-4">{generatedAssessment.title}</h3>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div><span className="font-semibold">Subject:</span> {generatedAssessment.subject}</div>
+                                <div><span className="font-semibold">Duration:</span> {generatedAssessment.duration} mins</div>
+                                <div><span className="font-semibold">Total Questions:</span> {generatedAssessment.totalQuestions}</div>
+                                <div><span className="font-semibold">Total Marks:</span> {generatedAssessment.totalMarks}</div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex gap-4">
+                            <Button onClick={handleDownloadPDF} className="flex-1 gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                Download PDF
+                            </Button>
+                            <Button variant="outline" onClick={() => {
+                                setGeneratedAssessment(null);
+                                if (onBack) onBack();
+                            }} className="flex-1">
+                                Create Another
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         // Validate required fields
-        const requiredFields = ['title', 'subject', 'assessmentType', 'duration', 'passingPercentage', 'difficultyLevel'];
+        const requiredFields = ['title', 'assessmentType', 'duration', 'passingPercentage', 'difficultyLevel'];
+        
+        if (!formData.curriculumId) {
+            alert('Please select a Curriculum');
+            return;
+        }
+
         const missingFields = requiredFields.filter(field => !formData[field]);
         
         if (showQuestionDetails) {
@@ -278,24 +499,29 @@ export function InnerAssessmentForm({
                             </div>
 
                             <div className="grid gap-3">
-                                <Label htmlFor="subject">Subject</Label>
-                                <Select value={formData.subject} onValueChange={(value) => handleInputChange('subject', value)} disabled={!!initialData?.subject}>
+                                <Label htmlFor="curriculum">Curriculum (Context)</Label>
+                                <Select value={formData.curriculumId} onValueChange={(value) => handleInputChange('curriculumId', value)}>
                                     <SelectTrigger className="w-[100%]">
-                                        <SelectValue placeholder="Select a Subject" />
+                                        <SelectValue placeholder="Select a Curriculum (Required)" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
-                                            <SelectLabel>Select Subject</SelectLabel>
-                                            <SelectItem value="cs">Computer Science</SelectItem>
-                                            <SelectItem value="physics">Physics</SelectItem>
-                                            <SelectItem value="chemistry">Chemistry</SelectItem>
-                                            <SelectItem value="mathematics">Mathematics</SelectItem>
-                                            <SelectItem value="biology">Biology</SelectItem>
-                                            <SelectItem value="english">English</SelectItem>
+                                            <SelectLabel>Available Curricula</SelectLabel>
+                                            <SelectItem value="none">General Knowledge (No specific curriculum)</SelectItem>
+                                            {curricula.map((curr) => (
+                                                <SelectItem key={curr._id} value={curr._id}>
+                                                    {curr.name}
+                                                </SelectItem>
+                                            ))}
                                         </SelectGroup>
                                     </SelectContent>
                                 </Select>
+                                <p className="text-xs text-muted-foreground">
+                                    Selecting a curriculum will auto-fill the subject and topics.
+                                </p>
                             </div>
+
+                            {/* Subject selection removed as it is auto-filled from curriculum */}
 
                             <div className="grid gap-3">
                                 <Label htmlFor="assessmentType">Assessment Type</Label>
@@ -412,7 +638,14 @@ export function InnerAssessmentForm({
                                             placeholder="e.g., Arrays, Loops, Functions (comma separated)"
                                             value={formData.topicsCovered}
                                             onChange={(e) => handleInputChange('topicsCovered', e.target.value)}
+                                            readOnly={formData.curriculumId && formData.curriculumId !== 'none'}
+                                            className={formData.curriculumId && formData.curriculumId !== 'none' ? "bg-muted" : ""}
                                         />
+                                        {formData.curriculumId && formData.curriculumId !== 'none' && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Topics are automatically selected from the curriculum.
+                                            </p>
+                                        )}
                                     </div>
                                 </>
                             )}

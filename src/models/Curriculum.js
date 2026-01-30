@@ -17,7 +17,7 @@ const curriculumSchema = new Schema({
   publicId: { type: String }, // Cloudinary public ID for deletion
   textContent: { type: String }, // Text preview
   totalChunks: { type: Number }, // Number of text chunks created
-  uploadedBy: { type: Schema.Types.ObjectId, ref: 'User' }
+  uploadedBy: { type: String } // Changed from ObjectId to String to support local dev users
 }, { timestamps: true });
 
 

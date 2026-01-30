@@ -18,6 +18,7 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
+  IconBolt,
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
@@ -51,6 +52,11 @@ export function AppSidebar({
         title: "Dashboard",
         url: "/dashboard",
         icon: IconDashboard,
+      },
+      {
+        title: "Quick Create",
+        url: "/dashboard/quick-create",
+        icon: IconBolt,
       },
       {
         title: "Generate Assessment",

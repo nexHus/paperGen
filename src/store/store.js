@@ -6,6 +6,7 @@ const useStore = create(
     (set, get) => ({
       name: "",
       email: "",
+      bio: "",
       avatar: "/avatars/shadcn.jpg",
       userId: "",
       isAuthenticated: false,
@@ -13,6 +14,7 @@ const useStore = create(
       // Setters
       SetName: (name) => set({ name }),
       SetEmail: (email) => set({ email }),
+      SetBio: (bio) => set({ bio }),
       SetAvatar: (avatar) => set({ avatar }),
       SetUserId: (userId) => set({ userId }),
       
@@ -20,6 +22,7 @@ const useStore = create(
       login: (userData) => set({
         name: userData.name || "",
         email: userData.email || "",
+        bio: userData.bio || "",
         userId: userData.userId || userData._id || "",
         isAuthenticated: true
       }),
@@ -28,6 +31,7 @@ const useStore = create(
       logout: () => set({
         name: "",
         email: "",
+        bio: "",
         avatar: "/avatars/shadcn.jpg",
         userId: "",
         isAuthenticated: false
@@ -45,6 +49,7 @@ const useStore = create(
         // Only persist these fields
         name: state.name,
         email: state.email,
+        bio: state.bio,
         userId: state.userId,
         isAuthenticated: state.isAuthenticated,
         avatar: state.avatar

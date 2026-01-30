@@ -7,6 +7,11 @@
 import connectDB from "@/middlewares/connectDB";
 import ChromaDBManager from "@/utils/chromaManager";
 import Assessment from "@/models/Assessment";
+import Curriculum from "@/models/Curriculum";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Google Gemini API configuration
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
 // HuggingFace API configuration (free tier)
 const HF_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large";
@@ -15,6 +20,23 @@ const HF_API_KEY = process.env.HUGGINGFACE_API_KEY || "";
 // OpenAI-compatible API (can use free alternatives like Together AI, Groq, etc.)
 const OPENAI_COMPATIBLE_URL = process.env.OPENAI_COMPATIBLE_URL || "";
 const OPENAI_COMPATIBLE_KEY = process.env.OPENAI_COMPATIBLE_KEY || "";
+
+/**
+ * Generate questions using Google Gemini API
+ */
+async function generateWithGemini(prompt, systemPrompt) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("Gemini API key not configured");
+  }
+
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  // Use gemini-1.5-flash as it is the most up-to-date stable version available
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+  const result = await model.generateContent(systemPrompt + "\n\n" + prompt);
+  const response = await result.response;
+  return response.text();
+}
 
 /**
  * Generate questions using HuggingFace API
@@ -154,13 +176,63 @@ function generateQuestionsLocally(content, config) {
     const template = questionTemplates.mcq[i % questionTemplates.mcq.length];
     const sentence = sentences[i % sentences.length] || "";
     
+    // Determine if the question asks for a keyword or a description
+    const isKeywordAnswer = template.includes("main concept");
+    
+    let options = [];
+    let correctAnswerIndex = 0;
+
+    if (isKeywordAnswer) {
+        // Question: What is the concept in "{sentence}"?
+        // Answer: keyword
+        // Distractors: other keywords
+        const otherKeywords = keywords.filter(k => k !== keyword);
+        const distractors = otherKeywords.sort(() => Math.random() - 0.5).slice(0, 3);
+        
+        // Fill with generic if not enough keywords
+        while (distractors.length < 3) {
+            distractors.push(`Concept ${distractors.length + 1}`);
+        }
+        
+        options = [keyword, ...distractors];
+    } else {
+        // Question: Describe {keyword}?
+        // Answer: sentence containing keyword
+        // Distractors: sentences containing other keywords
+        
+        // Find a sentence containing the keyword for the correct answer
+        const correctSentence = sentences.find(s => s.toLowerCase().includes(keyword.toLowerCase())) || 
+                              `It is a key concept related to ${topics[0]}.`;
+                              
+        // Find sentences NOT containing the keyword for distractors
+        const otherSentences = sentences
+            .filter(s => !s.toLowerCase().includes(keyword.toLowerCase()) && s !== correctSentence)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3);
+            
+        // Fill with generic if not enough sentences
+        while (otherSentences.length < 3) {
+            otherSentences.push(`It is unrelated to ${keyword} but important for the subject.`);
+        }
+        
+        options = [correctSentence, ...otherSentences];
+    }
+
+    // Shuffle options and find new correct index
+    const shuffledOptions = options.map(value => ({ value, sort: Math.random() }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ value }) => value);
+        
+    correctAnswerIndex = shuffledOptions.indexOf(isKeywordAnswer ? keyword : options[0]);
+
     questions.push({
       id: `q_${i + 1}`,
       type: "MCQ",
       difficulty: difficulty,
-      question: template.replace('{keyword}', keyword).replace('{sentence}', sentence.substring(0, 100)),
-      options: generateMCQOptions(keyword, content),
-      correctAnswer: 0,
+      question: template.replace('{keyword}', keyword).replace('{sentence}', sentence.substring(0, 100) + "..."),
+      options: shuffledOptions,
+      correctAnswer: correctAnswerIndex,
+      answer: shuffledOptions[correctAnswerIndex],
       marks: 1,
       topic: topics[i % topics.length] || "General",
     });
@@ -320,6 +392,7 @@ const handler = async (req, res) => {
       marksPerQuestion = 1,
       passingPercentage = 40,
       useAI = true, // Whether to use AI APIs or local generation
+      curriculumId = null, // Optional: Restrict search to specific curriculum
     } = req.body;
 
     // Validate required fields
@@ -347,17 +420,55 @@ const handler = async (req, res) => {
     console.log("Searching ChromaDB for relevant content...");
     let relevantContent = [];
     let chromaAvailable = false;
+    let fallbackContent = "";
 
     try {
       const chromaManager = new ChromaDBManager();
       chromaAvailable = await chromaManager.checkConnection();
 
       if (chromaAvailable) {
+        // If curriculumId is provided, fetch its publicId first to filter chunks
+        let searchFilter = null;
+        
+        if (curriculumId && curriculumId !== 'none') {
+           // We need to find the publicId (documentId in Chroma) associated with this curriculumId
+           try {
+             // Validate if curriculumId is a valid ObjectId
+             if (curriculumId.match(/^[0-9a-fA-F]{24}$/)) {
+                const curriculumDoc = await Curriculum.findById(curriculumId);
+                if (curriculumDoc) {
+                  if (curriculumDoc.publicId) {
+                    searchFilter = { documentId: curriculumDoc.publicId };
+                    console.log(`Filtering search for curriculum: ${curriculumDoc.name} (${curriculumDoc.publicId})`);
+                  }
+                  // Store text content as fallback
+                  if (curriculumDoc.textContent) {
+                    fallbackContent = curriculumDoc.textContent;
+                  }
+                } else {
+                    console.warn(`Curriculum not found: ${curriculumId}`);
+                }
+             } else {
+                 console.warn(`Invalid curriculumId format: ${curriculumId}`);
+             }
+           } catch (err) {
+             console.warn("Could not find curriculum for filtering:", err);
+           }
+        }
+
         for (const topic of topics) {
           try {
-            const searchResults = await chromaManager.search(topic, 5);
-            if (searchResults.documents && searchResults.documents[0]) {
+            console.log(`Searching ChromaDB for topic: "${topic}" with filter:`, searchFilter);
+            // Increased search results from 5 to 15 to get more context
+            const searchResults = await chromaManager.search(topic, 15, searchFilter);
+            
+            if (searchResults.documents && searchResults.documents[0] && searchResults.documents[0].length > 0) {
+              console.log(`Search results for "${topic}":`, searchResults.documents[0].length, "documents found");
+              // Log a snippet of the first result to verify relevance
+              console.log(`Snippet for "${topic}":`, searchResults.documents[0][0].substring(0, 100) + "...");
               relevantContent.push(...searchResults.documents[0]);
+            } else {
+              console.log(`No results found for topic: "${topic}"`);
             }
           } catch (searchError) {
             console.error(`Error searching for topic "${topic}":`, searchError.message);
@@ -365,6 +476,16 @@ const handler = async (req, res) => {
         }
       } else {
         console.log("ChromaDB not available, proceeding with local generation only");
+        // Try to get fallback content even if Chroma is down
+        if (curriculumId && curriculumId !== 'none' && curriculumId.match(/^[0-9a-fA-F]{24}$/)) {
+            try {
+                const curriculumDoc = await Curriculum.findById(curriculumId);
+                if (curriculumDoc && curriculumDoc.textContent) {
+                    fallbackContent = curriculumDoc.textContent;
+                    console.log("Using fallback content from MongoDB");
+                }
+            } catch (e) { console.error("Error fetching fallback content:", e); }
+        }
       }
     } catch (chromaError) {
       console.error("ChromaDB connection error:", chromaError.message);
@@ -372,7 +493,15 @@ const handler = async (req, res) => {
     }
 
     // Combine all relevant content
-    const combinedContent = relevantContent.join('\n\n');
+    let combinedContent = relevantContent.join('\n\n');
+    
+    // Use fallback content if no relevant content found from ChromaDB
+    if ((!combinedContent || combinedContent.length < 100) && fallbackContent) {
+        console.log("Using fallback content from MongoDB as ChromaDB search yielded insufficient results.");
+        combinedContent = fallbackContent;
+    }
+
+    console.log(`Total relevant content length: ${combinedContent.length} characters`);
 
     if (!combinedContent || combinedContent.length < 100) {
       // Generate questions without curriculum content (use topics only)
@@ -385,25 +514,50 @@ const handler = async (req, res) => {
 
     if (useAI && combinedContent.length > 100) {
       // Build prompt for AI
-      const systemPrompt = `You are an expert educator creating assessment questions. Generate high-quality ${assessmentType} questions based on the provided curriculum content. 
+      const systemPrompt = `You are an expert educator creating assessment questions. Generate high-quality, well-structured ${assessmentType} questions based on the provided curriculum content. 
       
 Rules:
 - Create exactly ${numberOfQuestions} questions
 - Difficulty level: ${difficulty}
-- For MCQs: provide 4 options with one correct answer
-- Questions should test understanding, not just memorization
-- Return questions in JSON format with structure: {"questions": [{"type": "MCQ/Short Answer/Long Answer", "question": "...", "options": ["A", "B", "C", "D"] (for MCQ), "marks": number, "topic": "..."}]}`;
+- **Question Structure:**
+  - Questions must be clear, concise, and grammatically correct.
+  - Avoid ambiguous phrasing.
+  - Ensure the question stem provides enough context to answer without looking at the options first.
+- **For MCQs:**
+  - Provide exactly 4 options.
+  - One option must be the correct answer.
+  - The other three options must be **highly relevant and plausible distractors** directly related to the specific concept being tested.
+  - **CRITICAL:** Distractors must be conceptually similar to the correct answer (e.g., if the answer is a specific algorithm, distractors must be other real algorithms, not random words).
+  - Do NOT use "None of the above" or "All of the above".
+  - Ensure distractors are not obviously incorrect or irrelevant. They should be common misconceptions or related concepts from the same domain.
+- **For Short/Long Answers:**
+  - Questions should encourage critical thinking and application of concepts.
+  - Avoid simple "define X" questions unless the difficulty is Easy.
+- Questions should test understanding, not just memorization.
+- Return questions in JSON format with structure: {"questions": [{"type": "MCQ/Short Answer/Long Answer", "question": "...", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "marks": number, "topic": "..."}]}`;
 
       const userPrompt = `Based on the following curriculum content about ${topics.join(', ')}, generate ${numberOfQuestions} ${assessmentType} questions at ${difficulty} difficulty level.
 
 Curriculum Content:
-${combinedContent.substring(0, 3000)}
+${combinedContent.substring(0, 15000)}
 
 Generate the questions now:`;
 
       // Try different AI APIs
       try {
-        if (OPENAI_COMPATIBLE_URL && OPENAI_COMPATIBLE_KEY) {
+        if (GEMINI_API_KEY) {
+          console.log("Generating questions with Google Gemini API...");
+          try {
+            const aiResponse = await generateWithGemini(userPrompt, systemPrompt);
+            questions = parseAIResponse(aiResponse, assessmentType, numberOfQuestions);
+            generationMethod = "gemini";
+          } catch (geminiError) {
+            console.error("Gemini API failed, trying fallback...", geminiError.message);
+            // If Gemini fails, don't immediately fall back to local if other APIs are available
+            // But for now, we'll let it fall through to local
+            // throw geminiError; // Don't throw, let it fall back to local
+          }
+        } else if (OPENAI_COMPATIBLE_URL && OPENAI_COMPATIBLE_KEY) {
           console.log("Generating questions with OpenAI-compatible API...");
           const aiResponse = await generateWithOpenAICompatible(userPrompt, systemPrompt);
           questions = parseAIResponse(aiResponse, assessmentType, numberOfQuestions);
@@ -474,7 +628,7 @@ Generate the questions now:`;
     console.error("Generate AI questions error:", err);
     return res.status(500).json({
       type: "error",
-      message: "Something went wrong while generating questions.",
+      message: `Something went wrong while generating questions: ${err.message}`,
       error: err.message,
     });
   }

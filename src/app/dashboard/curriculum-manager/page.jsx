@@ -127,36 +127,13 @@ export default function CurriculumManager() {
             return;
         }
 
-        setIsUploading(true);
-        setUploadProgress(0);
-
-        try {
-            // Create a unique filename
-            const timestamp = Date.now();
-            const fileName = `curriculum_${timestamp}_${file.name}`;
-            const storageRef = ref(storage, `papergenie/${fileName}`);
-
-            // Upload file to Firebase Storage
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-
-            // Update form data with file info and URL
-            setFormData(prev => ({
-                ...prev,
-                file: file,
-                fileUrl: downloadURL
-            }));
-            setFileUrl(downloadURL);
-
-            console.log('File uploaded successfully:', downloadURL);
-            toast.success('File uploaded successfully!');
-        } catch (error) {
-            console.error('Error uploading file:', error);
-            toast.error('Failed to upload file. Please try again.');
-        } finally {
-            setIsUploading(false);
-            setUploadProgress(0);
-        }
+        // Store file in state to be uploaded on submit
+        setFormData(prev => ({
+            ...prev,
+            file: file
+        }));
+        
+        toast.success('File selected. It will be processed when you click "Add Curriculum".');
     };
 
     const handleSubmit = async (e) => {
@@ -171,27 +148,61 @@ export default function CurriculumManager() {
             return;
         }
 
-        const topicsArray = formData.topics.split(',').map(topic => topic.trim()).filter(topic => topic);
-        
-        const curriculumData = {
-            name: formData.name,
-            subject: formData.subject,
-            grade: formData.grade,
-            board: formData.board,
-            bookTitle: formData.bookTitle,
-            author: formData.author || "Not specified",
-            publisher: formData.publisher || "Not specified",
-            edition: formData.edition || "Latest",
-            numberOfChapters: parseInt(formData.chapters) || 0,
-            topics: topicsArray
-            // fileName: formData.file ? formData.file.name : "",
-            // fileType: formData.file ? (formData.file.type.includes('pdf') ? 'PDF' : 'Document') : 'PDF',
-            // fileSize: formData.file ? `${(formData.file.size / (1024 * 1024)).toFixed(1)} MB` : "N/A",
-            // status: "Active"
-        };
+        setIsUploading(true);
+        const toastId = toast.loading('Processing curriculum...');
 
         try {
-            setIsUploading(true);
+            let fileUrl = editingCurriculum?.fileUrl || "";
+            let publicId = editingCurriculum?.publicId || "";
+            let textContent = editingCurriculum?.textContent || "";
+            let totalChunks = editingCurriculum?.totalChunks || 0;
+            let fileName = editingCurriculum?.fileName || "";
+            
+            // If there's a new file, upload it first
+            if (formData.file) {
+                toast.loading('Uploading and embedding file...', { id: toastId });
+                
+                const uploadFormData = new FormData();
+                uploadFormData.append('file', formData.file);
+                
+                const uploadResponse = await fetch('/api/curriculum/uploadFile', {
+                    method: 'POST',
+                    body: uploadFormData,
+                });
+                
+                const uploadResult = await uploadResponse.json();
+                
+                if (uploadResult.type === 'success') {
+                    fileUrl = uploadResult.data.fileUrl;
+                    publicId = uploadResult.data.publicId;
+                    textContent = uploadResult.data.textContent;
+                    totalChunks = uploadResult.data.totalChunks;
+                    fileName = uploadResult.data.fileName;
+                    toast.success('File processed successfully!', { id: toastId });
+                } else {
+                    throw new Error(uploadResult.message || 'File upload failed');
+                }
+            }
+
+            const topicsArray = formData.topics.split(',').map(topic => topic.trim()).filter(topic => topic);
+            
+            const curriculumData = {
+                name: formData.name,
+                subject: formData.subject,
+                grade: formData.grade,
+                board: formData.board,
+                bookTitle: formData.bookTitle,
+                author: formData.author || "Not specified",
+                publisher: formData.publisher || "Not specified",
+                edition: formData.edition || "Latest",
+                numberOfChapters: parseInt(formData.numberOfChapters) || 0,
+                topics: topicsArray,
+                fileUrl: fileUrl,
+                publicId: publicId,
+                textContent: textContent,
+                totalChunks: totalChunks,
+                fileName: fileName
+            };
        
             if (editingCurriculum) {
                // Update existing curriculum
@@ -203,7 +214,7 @@ export default function CurriculumManager() {
                 body: JSON.stringify({
                     ...curriculumData,
                     curriculumId: editingCurriculum._id,
-                    fileUrl: editingCurriculum.file
+                    fileUrl: fileUrl
                 }),
             });
 
@@ -213,9 +224,9 @@ export default function CurriculumManager() {
                 setCurricula(prev => prev.map(curr => 
                     curr._id === editingCurriculum._id ? result.curriculum : curr
                 ));
-                toast.success('Curriculum updated successfully!');
+                toast.success('Curriculum updated successfully!', { id: toastId });
             } else {
-                toast.error(result.message);
+                toast.error(result.message, { id: toastId });
                 return;
             }
             } else {
@@ -225,15 +236,21 @@ export default function CurriculumManager() {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({...curriculumData, file: fileUrl}),
+                    body: JSON.stringify(curriculumData),
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to add curriculum');
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to add curriculum');
                 }
 
-                const newCurriculum = await response.json();
-                setCurricula(prev => [...prev, { ...newCurriculum, id: Date.now() }]);
+                const responseData = await response.json();
+                if (responseData.type === 'success') {
+                    setCurricula(prev => [...prev, responseData.curriculum]);
+                    toast.success('Curriculum added successfully!', { id: toastId });
+                } else {
+                    throw new Error(responseData.message || 'Failed to add curriculum');
+                }
             }
 
             // Reset form
@@ -254,10 +271,9 @@ export default function CurriculumManager() {
             setShowAddForm(false);
             setEditingCurriculum(null);
 
-            alert(editingCurriculum ? 'Curriculum updated successfully!' : 'Curriculum added successfully!');
         } catch (error) {
             console.error('Error saving curriculum:', error);
-            alert('Failed to save curriculum. Please try again.');
+            toast.error(`Failed to save curriculum: ${error.message}`, { id: toastId });
         } finally {
             setIsUploading(false);
         }
@@ -506,7 +522,7 @@ export default function CurriculumManager() {
                                             type="number"
                                             placeholder="e.g., 15"
                                             value={formData.numberOfChapters}
-                                            onChange={(e) => handleInputChange('chapters', e.target.value)}
+                                            onChange={(e) => handleInputChange('numberOfChapters', e.target.value)}
                                             min="1"
                                         />
                                     </div>

@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
 import formidable from "formidable";
 import fs from "fs";
+import path from "path";
 import pdfParse from "pdf-parse";
 import { chunkText, cleanText } from "@/utils/textChunker";
 import ChromaDBManager from "@/utils/chromaManager";
@@ -115,7 +116,7 @@ const handler = async (req, res) => {
         });
       }
 
-      // Step 3: Upload to Cloudinary (with fallback for local-only mode)
+      // Step 3: Upload to Cloudinary or Local Storage
       let cloudinaryResult = null;
       let documentId = `local_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       let fileUrl = null;
@@ -138,10 +139,23 @@ const handler = async (req, res) => {
           fileUrl = cloudinaryResult.secure_url;
         } catch (cloudinaryError) {
           console.error("Cloudinary upload failed:", cloudinaryError.message);
-          // Continue without Cloudinary - file won't be stored remotely
+          // Fallback to local storage
         }
-      } else {
-        console.log("Cloudinary not configured - storing text content only");
+      } 
+      
+      if (!fileUrl) {
+        console.log("Storing file locally...");
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        
+        const fileName = `curriculum_${Date.now()}_${uploadedFile.originalFilename.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+        const newPath = path.join(uploadsDir, fileName);
+        
+        fs.copyFileSync(uploadedFile.filepath, newPath);
+        fileUrl = `/uploads/${fileName}`;
+        documentId = `local_${Date.now()}`;
       }
 
       // Step 4: Save documents to ChromaDB (with graceful fallback)
@@ -166,23 +180,13 @@ const handler = async (req, res) => {
         // Continue without ChromaDB - search functionality will be limited
       }
 
-      // Step 5: Save curriculum info to database
-      const curriculumData = {
-        fileName: uploadedFile.originalFilename,
-        fileUrl: fileUrl || null,
-        publicId: documentId,
-        textContent: cleanedText.substring(0, 5000), // Store more text for local search fallback
-        totalChunks: chunks.length,
-        uploadedAt: new Date(),
-        // Add user ID if authentication is enabled
-        // userId: decoded.id,
-      };
-
-      const curriculum = new Curriculum(curriculumData);
-      await curriculum.save();
-
+      // Step 5: Return success with file info (do not save to DB yet)
+      // The frontend will send this info to add-curriculum endpoint
+      
       // Clean up temporary file
-      fs.unlinkSync(uploadedFile.filepath);
+      if (fs.existsSync(uploadedFile.filepath)) {
+        fs.unlinkSync(uploadedFile.filepath);
+      }
 
       return res.status(200).json({
         type: "success",
@@ -195,7 +199,7 @@ const handler = async (req, res) => {
           publicId: documentId,
           documentId: documentId,
           totalChunks: chunks.length,
-          textPreview: cleanedText.substring(0, 500) + "...",
+          textContent: cleanedText.substring(0, 5000), // Send preview for DB storage
           chromaEnabled: chromaSaved,
           cloudinaryEnabled: !!cloudinaryResult,
         },

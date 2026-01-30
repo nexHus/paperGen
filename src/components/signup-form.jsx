@@ -1,19 +1,13 @@
 "use client"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import toast from "react-hot-toast"
+import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react"
 
 export function SignupForm({
   className,
@@ -23,6 +17,7 @@ export function SignupForm({
   const [email, setEmail]= useState("")
   const [password, setPassword]= useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   // Client-side validation
@@ -99,81 +94,120 @@ export function SignupForm({
     }
   }
   return (
-    (<div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">Create New Account</CardTitle>
-          <CardDescription>
-            Create new account by entering your details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div>
-            <div className="grid gap-6">
-            
-              <div className="grid gap-6">
-
-
-                <div className="grid gap-3">
-                  <Label htmlFor="email">Email</Label>
-                  <Input 
-                    id="email" 
-                    value={email} 
-                    onChange={e=>setEmail(e.target.value)} 
-                    onKeyPress={handleKeyPress}
-                    type="email" 
-                    placeholder="m@example.com" 
-                    disabled={isLoading}
-                    required 
-                  />
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="flex items-center">
-                    <Label htmlFor="name">Full Name</Label>
-                  </div>
-                  <Input 
-                    id="name" 
-                    value={name} 
-                    onChange={e=>setName(e.target.value)} 
-                    onKeyPress={handleKeyPress}
-                    placeholder="John Doe"
-                    disabled={isLoading}
-                    required 
-                  />
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
-                  </div>
-                  <Input 
-                    value={password} 
-                    onChange={e=>setPassword(e.target.value)} 
-                    onKeyPress={handleKeyPress}
-                    id="password" 
-                    type="password" 
-                    placeholder="Min. 6 characters"
-                    disabled={isLoading}
-                    required 
-                  />
-                </div>
-
-                <Button onClick={signup} className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating Account..." : "Signup"}
-                </Button>
-              </div>
-              <div className="text-center text-sm">
-                Already have an account?{" "}
-                <Link href="/login" className="underline underline-offset-4">
-                  Login
-                </Link>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className="flex flex-col gap-2 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">Create an account</h1>
+        <p className="text-muted-foreground text-sm">
+          Enter your details to get started with PaperGenie
+        </p>
+      </div>
       
-    </div>)
+      <div className="grid gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="name">Full Name</Label>
+          <div className="relative">
+            <User className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+            <Input 
+              id="name" 
+              value={name} 
+              onChange={e=>setName(e.target.value)} 
+              onKeyPress={handleKeyPress}
+              placeholder="John Doe"
+              className="pl-10"
+              disabled={isLoading}
+              required 
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+            <Input 
+              id="email" 
+              value={email} 
+              onChange={e=>setEmail(e.target.value)} 
+              onKeyPress={handleKeyPress}
+              type="email" 
+              placeholder="name@example.com" 
+              className="pl-10"
+              disabled={isLoading}
+              required 
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Lock className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+            <Input 
+              value={password} 
+              onChange={e=>setPassword(e.target.value)} 
+              onKeyPress={handleKeyPress}
+              id="password" 
+              type={showPassword ? "text" : "password"}
+              placeholder="Min. 6 characters"
+              className="pl-10 pr-10"
+              disabled={isLoading}
+              required 
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-muted-foreground hover:text-foreground absolute right-3 top-1/2 -translate-y-1/2"
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Must be at least 6 characters long
+          </p>
+        </div>
+
+        <Button onClick={signup} className="w-full" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            "Create Account"
+          )}
+        </Button>
+      </div>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background text-muted-foreground px-2">
+            Already have an account?
+          </span>
+        </div>
+      </div>
+
+      <div className="text-center text-sm">
+        <Link 
+          href="/login" 
+          className="text-primary font-medium underline underline-offset-4 hover:opacity-80"
+        >
+          Sign in
+        </Link>
+      </div>
+
+      <p className="text-muted-foreground px-4 text-center text-xs">
+        By creating an account, you agree to our{" "}
+        <Link href="#" className="underline underline-offset-4 hover:text-primary">
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link href="#" className="underline underline-offset-4 hover:text-primary">
+          Privacy Policy
+        </Link>
+      </p>
+    </div>
   );
 }

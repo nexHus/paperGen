@@ -7,7 +7,10 @@ const LOCAL_USER_ID = "local_dev_user";
 const handler = async (req, res) => {
     if (req.method === "POST") {
         try {
-            const { name, subject, grade, board, bookTitle, author, publisher, edition, numberOfChapters, topics, file } = req.body;
+            const { 
+                name, subject, grade, board, bookTitle, author, publisher, edition, 
+                numberOfChapters, topics, fileUrl, publicId, textContent, totalChunks, fileName 
+            } = req.body;
 
             // Validate required fields
             if (!name || !name.trim()) {
@@ -61,7 +64,11 @@ const handler = async (req, res) => {
                 edition: edition ? edition.trim() : "Latest",
                 numberOfChapters: parseInt(numberOfChapters) || 0,
                 topics: sanitizedTopics,
-                file: file || null,
+                fileUrl: fileUrl || null,
+                publicId: publicId || null,
+                textContent: textContent || null,
+                totalChunks: totalChunks || 0,
+                fileName: fileName || null,
                 uploadedBy: LOCAL_USER_ID
             });
             
@@ -74,6 +81,7 @@ const handler = async (req, res) => {
             });
         } catch (err) {
             console.error("Curriculum addition error:", err);
+            console.error("Request body:", req.body); // Log the body for debugging
             
             // Handle mongoose validation errors
             if (err.name === 'ValidationError') {

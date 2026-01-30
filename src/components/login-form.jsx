@@ -1,13 +1,6 @@
 "use client"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
@@ -15,6 +8,7 @@ import { useState } from "react"
 import toast from "react-hot-toast"
 import useStore from "@/store/store"
 import { useRouter } from "next/navigation"
+import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react"
 
 export function LoginForm({
   className,
@@ -25,6 +19,7 @@ export function LoginForm({
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const validateForm = () => {
     if (!email || !email.trim()) {
@@ -78,7 +73,7 @@ export function LoginForm({
           userId: res.user.userId,
           name: res.user.name
         });
-        router.push("/dashboard");
+        router.push("/");
       } else {
         toast.error(res.message || "Login failed. Please try again.");
       }
@@ -97,64 +92,97 @@ export function LoginForm({
     }
   };
   return (
-    (<div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">Welcome back</CardTitle>
-          <CardDescription>
-            Login with your account details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div>
-            <div className="grid gap-6">
-            
-              <div className="grid gap-6">
-                <div className="grid gap-3">
-                  <Label htmlFor="email">Email</Label>
-                  <Input 
-                    value={email} 
-                    onChange={e => setEmail(e.target.value)} 
-                    onKeyPress={handleKeyPress}
-                    id="email" 
-                    type="email" 
-                    placeholder="m@example.com" 
-                    required 
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="grid gap-3">
-                  <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
-                    <a href="#" className="ml-auto text-sm underline-offset-4 hover:underline">
-                      Forgot your password?
-                    </a>
-                  </div>
-                  <Input 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)} 
-                    onKeyPress={handleKeyPress}
-                    id="password" 
-                    type="password" 
-                    required 
-                    disabled={isLoading}
-                  />
-                </div>
-                <Button onClick={login} className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login"}
-                </Button>
-              </div>
-              <div className="text-center text-sm">
-                Don&apos;t have an account?{" "}
-                <Link href="/signup" className="underline underline-offset-4">
-                  Sign up
-                </Link>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className="flex flex-col gap-2 text-center">
+        <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
+        <p className="text-muted-foreground text-sm">
+          Enter your credentials to access your account
+        </p>
+      </div>
       
-    </div>)
+      <div className="grid gap-5">
+        <div className="grid gap-2">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+            <Input 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              onKeyPress={handleKeyPress}
+              id="email" 
+              type="email" 
+              placeholder="name@example.com" 
+              className="pl-10"
+              required 
+              disabled={isLoading}
+            />
+          </div>
+        </div>
+        
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link 
+              href="#" 
+              className="text-muted-foreground hover:text-primary text-xs underline-offset-4 hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+          <div className="relative">
+            <Lock className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+            <Input 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              onKeyPress={handleKeyPress}
+              id="password" 
+              type={showPassword ? "text" : "password"}
+              placeholder="Enter your password"
+              className="pl-10 pr-10"
+              required 
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-muted-foreground hover:text-foreground absolute right-3 top-1/2 -translate-y-1/2"
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+        </div>
+        
+        <Button onClick={login} className="w-full" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Signing in...
+            </>
+          ) : (
+            "Sign In"
+          )}
+        </Button>
+      </div>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background text-muted-foreground px-2">
+            New to PaperGenie?
+          </span>
+        </div>
+      </div>
+
+      <div className="text-center text-sm">
+        <Link 
+          href="/signup" 
+          className="text-primary font-medium underline underline-offset-4 hover:opacity-80"
+        >
+          Create an account
+        </Link>
+      </div>
+    </div>
   );
 }
