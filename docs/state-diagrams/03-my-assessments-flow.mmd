@@ -1,0 +1,89 @@
+---
+title: PaperGenie - My Assessments State Chart
+---
+stateDiagram-v2
+    [*] --> Loading: Navigate to My Assessments
+
+    state Loading {
+        [*] --> FetchingData
+        FetchingData --> DataLoaded: API Success
+        FetchingData --> LoadError: API Error
+    }
+
+    Loading --> ListView: Data Loaded
+    Loading --> ErrorState: Load Error
+
+    state ErrorState {
+        [*] --> ShowError
+        ShowError --> Loading: Retry
+    }
+
+    state ListView {
+        [*] --> DisplayingAll
+        
+        state DisplayingAll {
+            [*] --> AllCollapsed
+        }
+
+        state Filtering {
+            [*] --> Idle
+            Idle --> SearchFiltering: Search Term Entered
+            Idle --> SubjectFiltering: Subject Filter Changed
+            Idle --> TypeFiltering: Type Filter Changed
+            Idle --> StatusFiltering: Status Filter Changed
+            SearchFiltering --> Idle: Clear Search
+            SubjectFiltering --> Idle: Reset Filter
+            TypeFiltering --> Idle: Reset Filter
+            StatusFiltering --> Idle: Reset Filter
+        }
+
+        DisplayingAll --> Filtering: Apply Filter
+        Filtering --> DisplayingFiltered: Filter Applied
+        DisplayingFiltered --> DisplayingAll: Clear All Filters
+        
+        state DisplayingFiltered {
+            [*] --> ShowingResults
+            ShowingResults --> EmptyResults: No Matches
+            EmptyResults --> ShowingResults: Modify Filter
+        }
+    }
+
+    state AssessmentCard {
+        [*] --> Collapsed
+        Collapsed --> Expanded: Click Expand
+        Expanded --> Collapsed: Click Collapse
+        
+        state Expanded {
+            [*] --> ShowingDetails
+            ShowingDetails --> Downloading: Click Download
+            ShowingDetails --> Deleting: Click Delete
+            Downloading --> ShowingDetails: Download Complete
+            Deleting --> ConfirmDelete: Confirm Dialog
+            ConfirmDelete --> ShowingDetails: Cancel
+            ConfirmDelete --> Deleted: Confirm
+        }
+    }
+
+    ListView --> AssessmentCard: Interact with Card
+    AssessmentCard --> ListView: Action Complete
+
+    state Deleted {
+        [*] --> RemovingFromList
+        RemovingFromList --> ShowSuccessToast
+        ShowSuccessToast --> [*]
+    }
+
+    Deleted --> ListView: Update List
+
+    note right of Loading
+        API: GET /api/assessment/get-all-assessment
+        Headers: Authorization: Bearer <token>
+    end note
+
+    note right of Filtering
+        Filter Options:
+        - Search: Title, Subject
+        - Subject: All, Math, Science, etc.
+        - Type: MCQs, Short, Long, Mixed
+        - Status: All, Draft, Published
+    end note

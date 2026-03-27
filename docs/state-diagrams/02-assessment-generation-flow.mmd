@@ -1,0 +1,85 @@
+---
+title: PaperGenie - Assessment Generation State Chart
+---
+stateDiagram-v2
+    [*] --> InitialForm: Navigate to Generate Assessment
+
+    state InitialForm {
+        [*] --> FormIdle
+        FormIdle --> SubjectSelected: Select Subject
+        SubjectSelected --> TypeSelected: Select Assessment Type
+        TypeSelected --> FormReady: Both Selected
+        FormReady --> SubjectSelected: Change Subject
+        FormReady --> TypeSelected: Change Type
+    }
+
+    InitialForm --> InnerForm: Click "Next" (Form Ready)
+
+    state InnerForm {
+        [*] --> EditingBasicInfo
+        
+        state EditingBasicInfo {
+            [*] --> FillingTitle
+            FillingTitle --> FillingDuration
+            FillingDuration --> FillingPassingPercentage
+            FillingPassingPercentage --> FillingDifficulty
+            FillingDifficulty --> BasicInfoComplete
+        }
+
+        EditingBasicInfo --> EditingQuestionDetails: Basic Info Complete
+        
+        state EditingQuestionDetails {
+            [*] --> FillingNumQuestions
+            FillingNumQuestions --> FillingMarksPerQuestion
+            FillingMarksPerQuestion --> FillingInstructions
+            FillingInstructions --> FillingTopics
+            FillingTopics --> QuestionDetailsComplete
+        }
+
+        EditingQuestionDetails --> ValidationCheck: Submit Clicked
+        
+        state ValidationCheck {
+            [*] --> CheckingDuration
+            CheckingDuration --> DurationWarning: Time Insufficient
+            CheckingDuration --> ValidationPassed: Time Sufficient
+            DurationWarning --> ShowWarningModal
+        }
+        
+        ShowWarningModal --> Generating: User Confirms "Generate Anyway"
+        ShowWarningModal --> EditingQuestionDetails: User Cancels
+        ValidationPassed --> Generating
+        
+        state Generating {
+            [*] --> CallingAPI
+            CallingAPI --> ProcessingResponse
+        }
+        
+        Generating --> GenerationSuccess: API Success
+        Generating --> GenerationError: API Error
+        
+        GenerationSuccess --> [*]
+        GenerationError --> EditingBasicInfo: User Retries
+    }
+
+    InnerForm --> InitialForm: Click "Back"
+    InnerForm --> AssessmentCreated: Generation Success
+
+    state AssessmentCreated {
+        [*] --> ShowSuccessAlert
+        ShowSuccessAlert --> [*]
+    }
+
+    note right of ValidationCheck
+        Duration Validation Rules:
+        - MCQs: 0.5 min/question
+        - Short Questions: 2 min/question  
+        - Long Questions: 5 min/question
+        - Full Paper: 3 min/question
+        - Mixed: 2 min/question
+    end note
+
+    note right of Generating
+        API: POST /api/assessment/add-assessment
+        Headers: Authorization: Bearer <token>
+        Body: Assessment form data + file
+    end note

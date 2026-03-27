@@ -1,0 +1,143 @@
+---
+title: PaperGenie - Curriculum Manager State Chart
+---
+stateDiagram-v2
+    [*] --> InitialLoading: Navigate to Curriculum Manager
+
+    state InitialLoading {
+        [*] --> FetchingCurricula
+        FetchingCurricula --> LoadSuccess: API Success
+        FetchingCurricula --> LoadError: API Error
+    }
+
+    InitialLoading --> CurriculumList: Load Success
+    InitialLoading --> ErrorDisplay: Load Error
+
+    state ErrorDisplay {
+        [*] --> ShowingError
+        ShowingError --> InitialLoading: Retry
+    }
+
+    state CurriculumList {
+        [*] --> DisplayingGrid
+
+        state DisplayingGrid {
+            [*] --> AllCurricula
+            AllCurricula --> Filtered: Apply Filter
+            Filtered --> AllCurricula: Clear Filters
+        }
+
+        state Filtering {
+            [*] --> Idle
+            Idle --> BySearch: Search Term
+            Idle --> ByGrade: Grade Filter
+            Idle --> BySubject: Subject Filter
+            BySearch --> Idle
+            ByGrade --> Idle
+            BySubject --> Idle
+        }
+    }
+
+    CurriculumList --> AddCurriculumModal: Click "Add Curriculum"
+    CurriculumList --> EditCurriculumModal: Click Edit on Card
+    CurriculumList --> DeleteConfirm: Click Delete on Card
+
+    state AddCurriculumModal {
+        [*] --> FormEmpty
+        
+        state FormEmpty {
+            [*] --> FillingBasicInfo
+            FillingBasicInfo --> FillingBookDetails
+            FillingBookDetails --> FillingTopics
+            FillingTopics --> SelectingFile
+        }
+
+        SelectingFile --> FileSelected: File Chosen
+        FileSelected --> ValidatingFile: Check File
+
+        state ValidatingFile {
+            [*] --> CheckingType
+            CheckingType --> CheckingSize: Valid Type (PDF/DOC/DOCX)
+            CheckingType --> FileError: Invalid Type
+            CheckingSize --> FileValid: Size <= 50MB
+            CheckingSize --> FileError: Size > 50MB
+        }
+
+        FileValid --> ReadyToSubmit
+        FileError --> SelectingFile: Select Different File
+
+        ReadyToSubmit --> Uploading: Click Submit
+        
+        state Uploading {
+            [*] --> UploadingToFirebase
+            UploadingToFirebase --> UploadProgress: Progress Update
+            UploadProgress --> UploadComplete: 100%
+            UploadProgress --> UploadError: Upload Failed
+        }
+
+        UploadComplete --> SavingToDatabase
+        
+        state SavingToDatabase {
+            [*] --> CallingAPI
+            CallingAPI --> SaveSuccess: API Success
+            CallingAPI --> SaveError: API Error
+        }
+
+        SaveSuccess --> [*]
+        SaveError --> ReadyToSubmit: Retry
+        UploadError --> SelectingFile: Retry Upload
+    }
+
+    state EditCurriculumModal {
+        [*] --> LoadingExisting
+        LoadingExisting --> FormPopulated: Data Loaded
+        
+        state FormPopulated {
+            [*] --> EditingFields
+            EditingFields --> ChangingFile: New File Selected
+            ChangingFile --> EditingFields: File Validated
+        }
+
+        FormPopulated --> Updating: Click Update
+        
+        state Updating {
+            [*] --> UploadingNewFile: Has New File
+            [*] --> UpdatingDatabase: No New File
+            UploadingNewFile --> UpdatingDatabase: Upload Complete
+            UpdatingDatabase --> UpdateSuccess: API Success
+            UpdatingDatabase --> UpdateError: API Error
+        }
+
+        UpdateSuccess --> [*]
+        UpdateError --> FormPopulated: Retry
+    }
+
+    state DeleteConfirm {
+        [*] --> ShowingDialog
+        ShowingDialog --> Deleting: Confirm
+        ShowingDialog --> CurriculumList: Cancel
+        
+        state Deleting {
+            [*] --> CallingDeleteAPI
+            CallingDeleteAPI --> DeleteSuccess: API Success
+            CallingDeleteAPI --> DeleteError: API Error
+        }
+
+        DeleteSuccess --> [*]
+        DeleteError --> ShowingDialog: Show Error
+    }
+
+    AddCurriculumModal --> CurriculumList: Close/Success
+    EditCurriculumModal --> CurriculumList: Close/Success
+    DeleteConfirm --> CurriculumList: Complete
+
+    note right of Uploading
+        Firebase Storage Upload:
+        Path: papergenie/<fileName>
+        Returns: Download URL
+    end note
+
+    note right of ValidatingFile
+        Allowed: PDF, DOC, DOCX
+        Max Size: 50MB
+    end note

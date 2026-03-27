@@ -1,0 +1,63 @@
+---
+title: PaperGenie - Authentication State Chart
+---
+stateDiagram-v2
+    [*] --> Landing: App Launch
+
+    state Landing {
+        [*] --> CheckAuth
+        CheckAuth --> Dashboard: Token Exists
+        CheckAuth --> LoginPage: No Token
+    }
+
+    state LoginPage {
+        [*] --> LoginIdle
+        LoginIdle --> LoginValidating: Submit Clicked
+        LoginValidating --> LoginLoading: Valid Input
+        LoginValidating --> LoginIdle: Invalid Input
+        LoginLoading --> LoginSuccess: API Success (200)
+        LoginLoading --> LoginError: API Error (400/401/500)
+        LoginError --> LoginIdle: User Retries
+        LoginSuccess --> [*]
+    }
+
+    state SignupPage {
+        [*] --> SignupIdle
+        SignupIdle --> SignupValidating: Submit Clicked
+        SignupValidating --> SignupLoading: Valid Input
+        SignupValidating --> SignupIdle: Invalid Input
+        SignupLoading --> SignupSuccess: API Success (201)
+        SignupLoading --> SignupError: API Error (400/409/500)
+        SignupError --> SignupIdle: User Retries
+        SignupSuccess --> [*]
+    }
+
+    LoginPage --> SignupPage: "Create Account" Link
+    SignupPage --> LoginPage: "Already have account" Link
+    SignupPage --> LoginPage: Signup Success
+    LoginPage --> Dashboard: Login Success
+    
+    state Dashboard {
+        [*] --> Authenticated
+        Authenticated --> [*]: Logout
+    }
+
+    Dashboard --> LoginPage: Session Expired / Logout
+
+    note right of LoginLoading
+        API Call: POST /api/auth/login
+        Headers: Content-Type: application/json
+        Body: { email, password }
+    end note
+
+    note right of SignupLoading
+        API Call: POST /api/auth/signup
+        Body: { name, email, password }
+    end note
+
+    note right of LoginSuccess
+        Actions:
+        - Store token in localStorage
+        - Update Zustand store (email, userId, name)
+        - Navigate to /dashboard
+    end note

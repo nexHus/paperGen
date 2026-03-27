@@ -1,0 +1,191 @@
+---
+title: PaperGenie - Form Validation State Chart
+---
+stateDiagram-v2
+    [*] --> FormMounted: Component Renders
+
+    state FormMounted {
+        [*] --> InitializeState
+        InitializeState --> FormReady
+    }
+
+    FormReady --> FieldInteraction: User Focuses Field
+
+    state FieldInteraction {
+        [*] --> FieldFocused
+        
+        state FieldFocused {
+            [*] --> Pristine: Never Modified
+            Pristine --> Dirty: User Types
+            Dirty --> Modified: Value Changed
+        }
+
+        FieldFocused --> FieldBlurred: User Leaves Field
+        
+        state FieldBlurred {
+            [*] --> ValidateField
+            ValidateField --> FieldValid: Passes Validation
+            ValidateField --> FieldInvalid: Fails Validation
+        }
+    }
+
+    state LoginFormValidation {
+        [*] --> CheckEmail
+        
+        state CheckEmail {
+            [*] --> EmailEmpty: No Input
+            [*] --> EmailInvalid: Invalid Format
+            [*] --> EmailValid: Valid Email
+        }
+
+        state CheckPassword {
+            [*] --> PasswordEmpty: No Input
+            [*] --> PasswordValid: Has Input
+        }
+
+        CheckEmail --> CheckPassword
+        CheckPassword --> LoginFormValid: Both Valid
+        CheckPassword --> LoginFormInvalid: Any Invalid
+    }
+
+    state SignupFormValidation {
+        [*] --> CheckName
+        
+        state CheckName {
+            [*] --> NameEmpty: No Input
+            [*] --> NameValid: Has Input
+        }
+
+        state CheckSignupEmail {
+            [*] --> SignupEmailEmpty: No Input
+            [*] --> SignupEmailInvalid: Invalid Format
+            [*] --> SignupEmailValid: Valid Email
+        }
+
+        state CheckSignupPassword {
+            [*] --> SignupPasswordEmpty: No Input
+            [*] --> SignupPasswordWeak: Too Short
+            [*] --> SignupPasswordValid: Strong Password
+        }
+
+        CheckName --> CheckSignupEmail
+        CheckSignupEmail --> CheckSignupPassword
+        CheckSignupPassword --> SignupFormValid: All Valid
+        CheckSignupPassword --> SignupFormInvalid: Any Invalid
+    }
+
+    state AssessmentFormValidation {
+        [*] --> Step1Validation
+
+        state Step1Validation {
+            [*] --> CheckSubject
+            CheckSubject --> SubjectSelected: Has Value
+            CheckSubject --> SubjectEmpty: No Value
+            SubjectSelected --> CheckAssessmentType
+            CheckAssessmentType --> TypeSelected: Has Value
+            CheckAssessmentType --> TypeEmpty: No Value
+            TypeSelected --> Step1Valid
+        }
+
+        state Step2Validation {
+            [*] --> CheckTitle
+            CheckTitle --> CheckDuration
+            CheckDuration --> CheckPassingPercentage
+            CheckPassingPercentage --> CheckDifficulty
+            CheckDifficulty --> CheckNumQuestions
+            CheckNumQuestions --> CheckMarksPerQuestion
+            CheckMarksPerQuestion --> CheckTopics
+            CheckTopics --> Step2Valid: All Fields Valid
+            CheckTopics --> Step2Invalid: Missing Fields
+        }
+
+        state DurationValidation {
+            [*] --> CalculateMinTime
+            CalculateMinTime --> SufficientTime: duration >= minRequired
+            CalculateMinTime --> InsufficientTime: duration < minRequired
+            InsufficientTime --> ShowWarning
+            ShowWarning --> UserConfirms: Proceed Anyway
+            ShowWarning --> UserAdjusts: Modify Values
+        }
+
+        Step1Validation --> Step2Validation: Next Clicked
+        Step2Validation --> DurationValidation: Submit Clicked
+    }
+
+    state CurriculumFormValidation {
+        [*] --> CheckRequiredFields
+
+        state CheckRequiredFields {
+            [*] --> CheckCurriculumName
+            CheckCurriculumName --> CheckCurriculumSubject
+            CheckCurriculumSubject --> CheckGrade
+            CheckGrade --> CheckBoard
+            CheckBoard --> RequiredFieldsValid
+        }
+
+        state CheckOptionalFields {
+            [*] --> ValidateBookTitle
+            ValidateBookTitle --> ValidateAuthor
+            ValidateAuthor --> ValidatePublisher
+            ValidatePublisher --> ValidateEdition
+            ValidateEdition --> ValidateChapters
+            ValidateChapters --> ValidateTopics
+        }
+
+        state FileValidation {
+            [*] --> CheckFileSelected
+            CheckFileSelected --> NoFile: null
+            CheckFileSelected --> HasFile: File Object
+            
+            HasFile --> CheckFileType
+            CheckFileType --> ValidType: PDF/DOC/DOCX
+            CheckFileType --> InvalidType: Other
+            
+            ValidType --> CheckFileSize
+            CheckFileSize --> ValidSize: <= 50MB
+            CheckFileSize --> InvalidSize: > 50MB
+            
+            ValidSize --> FileValid
+            InvalidType --> FileInvalid
+            InvalidSize --> FileInvalid
+        }
+
+        CheckRequiredFields --> CheckOptionalFields
+        CheckOptionalFields --> FileValidation
+        FileValidation --> CurriculumFormValid: File Valid
+        FileValidation --> CurriculumFormInvalid: File Invalid
+    }
+
+    state FormSubmissionState {
+        [*] --> Idle
+        Idle --> Validating: Submit Clicked
+        Validating --> Valid: All Checks Pass
+        Validating --> Invalid: Validation Errors
+        Invalid --> Idle: User Corrects
+        Valid --> Submitting: Begin API Call
+        Submitting --> Success: API Success
+        Submitting --> Failed: API Error
+        Failed --> Idle: User Retries
+        Success --> [*]: Form Complete
+    }
+
+    LoginFormValidation --> FormSubmissionState
+    SignupFormValidation --> FormSubmissionState
+    AssessmentFormValidation --> FormSubmissionState
+    CurriculumFormValidation --> FormSubmissionState
+
+    note right of DurationValidation
+        Time per Question:
+        - MCQs: 0.5 min
+        - Short: 2 min
+        - Long: 5 min
+        - Full Paper: 3 min
+        - Mixed: 2 min
+    end note
+
+    note right of FileValidation
+        File Constraints:
+        - Types: .pdf, .doc, .docx
+        - Max Size: 50MB
+        - Storage: Firebase
+    end note
